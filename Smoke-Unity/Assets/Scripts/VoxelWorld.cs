@@ -216,6 +216,11 @@ public class VoxelWorld : MonoBehaviour
                 for (int i = 0; i < VoxelChildCount.x; i++) {
                     
                     int index = Get1DIndex(i, j, k);
+                    if (index >= VoxelStatusArray.Length)
+                    {
+                        return;
+                    }
+
                     VoxelStatus status = VoxelStatusArray[index];
 
                     // Set gizmo color based on status

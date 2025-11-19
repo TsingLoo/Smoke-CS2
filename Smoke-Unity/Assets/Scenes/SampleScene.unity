@@ -506,6 +506,9 @@ MonoBehaviour:
   SolidLayerMask:
     serializedVersion: 2
     m_Bits: 64
+  smokeSimulatorCS: {fileID: 7200000, guid: f68dd843323ba14449f460061da038d9, type: 3}
+  staticWorldTexture: {fileID: 0}
+  smokeDensityTexture: {fileID: 0}
   EnableGizmo: 1
   ShowSolidVoxels: 1
   ShowEmptyVoxels: 0
@@ -865,6 +868,56 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1226700085
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1226700087}
+  - component: {fileID: 1226700086}
+  m_Layer: 0
+  m_Name: 3DSmokeData
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1226700086
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1226700085}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 63dfe56c607db6844a9d5d85163df985, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  smokeDataCSV: {fileID: 4900000, guid: 023fa09b3e036bb48ac2b08861801243, type: 3}
+  smokeTexture: {fileID: 11700000, guid: 8750967b4e5127f41b6d923260e20917, type: 2}
+  startSlice: 15
+  savePath: Assets/Textures/CS2_SmokeGrenade_542x32x32.asset
+  detectedFormat: Tab-separated
+  totalLinesProcessed: 173440
+--- !u!4 &1226700087
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1226700085}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 3.671578, y: 4.050435, z: 12.36268}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1972557659
 GameObject:
   m_ObjectHideFlags: 0
@@ -1087,3 +1140,4 @@ SceneRoots:
   - {fileID: 816421567}
   - {fileID: 367541174}
   - {fileID: 954052461}
+  - {fileID: 1226700087}

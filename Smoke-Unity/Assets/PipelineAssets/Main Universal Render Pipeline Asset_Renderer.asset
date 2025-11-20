@@ -71,7 +71,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a7a50f9fbf8791d4dbb966beffb8a642, type: 3}
   m_Name: SmokeMaskFeature
   m_EditorClassIdentifier: 
-  m_Active: 1
+  m_Active: 0
   settings:
     renderPassEvent: 100
     smokeMaskMaterial: {fileID: 2100000, guid: a05040bc5b5a2ae4b8723965c0d8a4b0, type: 2}

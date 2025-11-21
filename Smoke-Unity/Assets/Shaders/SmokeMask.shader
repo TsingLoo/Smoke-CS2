@@ -237,7 +237,7 @@ Shader "Unlit/SmokeMask"
                         smoke.volumeIndex
                     ))
                     {
-                        return float4(0,1,1,1);
+                        //return float4(0,1,1,1);
                         smokeMask |= (1u << i);
                     }
                 }

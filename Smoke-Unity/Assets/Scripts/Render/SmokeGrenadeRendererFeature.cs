@@ -10,6 +10,8 @@ public class SmokeGrenadeRendererFeature : ScriptableRendererFeature
         public RenderPassEvent smokeMaskRenderPassEvent = RenderPassEvent.AfterRenderingOpaques;
         public Material smokeMaskMaterial;
         [Range(1, 4)] public int downSample = 2;
+
+        [Range(1.0f, 640.0f)] public float VoxelSize = 4.0f;
     }
     
     public Settings settings = new Settings();
@@ -37,6 +39,7 @@ public class SmokeGrenadeRendererFeature : ScriptableRendererFeature
         private RTHandle m_SmokeMaskHandle;
         public RTHandle MSmokeMaskHandle => m_SmokeMaskHandle;
         private const string profilerTag = "SmokeMask";
+        private float voxelSize = 1.0f;
         
         public SmokeMaskPass(Settings settings)
         {
@@ -44,6 +47,7 @@ public class SmokeGrenadeRendererFeature : ScriptableRendererFeature
             renderPassEvent = settings.smokeMaskRenderPassEvent;
             
             this.downSample = settings.downSample;
+            this.voxelSize = settings.VoxelSize;
         }
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
@@ -67,6 +71,8 @@ public class SmokeGrenadeRendererFeature : ScriptableRendererFeature
             }
             
             CommandBuffer cmd = CommandBufferPool.Get(profilerTag);
+            
+            cmd.SetGlobalFloat("_VolumeSize", voxelSize);
             
             using (new ProfilingScope(cmd, new ProfilingSampler(profilerTag)))
             {

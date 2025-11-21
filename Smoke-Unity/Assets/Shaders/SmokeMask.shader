@@ -52,6 +52,12 @@ Shader "Unlit/SmokeMask"
             int _SmokeCount;
             Texture3D _SmokeTex3D;
             SamplerState sampler_SmokeTex3D;
+
+            float _VolumeSize = 640.0;
+            static const float _VoxelResolution = 32.0;
+            static const float _AtlasSliceWidth = 34.0;
+            static const float _AtlasTextureWidth = 542.0;
+            static const uint _MaxDDASteps = 32;
             
             sampler2D _MainTex;
             float4 _MainTex_ST;
@@ -67,10 +73,19 @@ Shader "Unlit/SmokeMask"
                 int volumeIndex
             )
             {
-                float3 localPos = (startPos - volumeCenter) + 320.0;
-                float3 voxelPos = localPos * 0.05;
-                voxelPos = clamp(voxelPos, 0.0, 31.0);
+                float halfVolumeSize = _VolumeSize * 0.5;
+                float voxelSize = _VolumeSize / _VoxelResolution;
+                float worldToVoxel = 1.0 / voxelSize;
+                float voxelToUVW = 1.0 / _VoxelResolution;
+                float maxVoxelIndex = _VoxelResolution - 1.0;
+                float atlasUNorm = 1.0 / _AtlasTextureWidth;
                 
+                float3 localPos = (startPos - volumeCenter) + halfVolumeSize;
+                
+                float3 voxelPos = localPos * worldToVoxel;
+                voxelPos = clamp(voxelPos, 0.0, maxVoxelIndex);
+                
+                // DDA Init
                 int3 currentVoxel = int3(floor(voxelPos));
                 int3 voxelStep = int3(sign(rayDir));
                 
@@ -78,21 +93,23 @@ Shader "Unlit/SmokeMask"
                 
                 float3 stepDir = float3(voxelStep);
                 float3 tDelta = ((stepDir * (float3(currentVoxel) - voxelPos)) + (stepDir * 0.5) + 0.5) * rayStepSize;
-
-                //return true;
                 
                 [loop]
-                for (uint step = 0; step < 32; step++)
+                for (uint step = 0; step < _MaxDDASteps; step++)
                 {
                     float3 voxelFloat = float3(currentVoxel);
-                    float3 uvw = voxelFloat * 0.03125; // ÷32
+                    float3 uvw = voxelFloat * voxelToUVW;
                     
+                    // Check Bound
                     bool inBounds = all(uvw >= 0.0) && all(uvw <= 1.0);
                     if (!inBounds)
                         break;
                     
-                    float adjustedU = ((34.0 * float(volumeIndex)) + (uvw.x * 32.0)) * 0.001845018;
-                    float3 sampleUVW = float3(adjustedU, uvw.y, uvw.z);
+                    // currently using dumped CS2 data
+                    float3 sampleUVW_local = float3(uvw.x, uvw.z, uvw.y);
+                    
+                    float adjustedU = ((_AtlasSliceWidth * float(volumeIndex)) + (sampleUVW_local.x * _VoxelResolution)) * atlasUNorm;
+                    float3 sampleUVW = float3(adjustedU, sampleUVW_local.y, sampleUVW_local.z);
                     
                     float4 smokeData = _SmokeTex3D.SampleLevel(sampler_SmokeTex3D, sampleUVW, 0);
                     
@@ -101,12 +118,13 @@ Shader "Unlit/SmokeMask"
                         return true;
                     }
                     
-                    float distTraveled = length((voxelFloat * 20.0) - localPos);
+                    float distTraveled = length((voxelFloat * voxelSize) - localPos);
                     if (distTraveled > maxDist)
                     {
                         break;
                     }
                     
+                    // DDA raymarching 
                     float3 mask = float3(
                         (tDelta.x <= tDelta.y && tDelta.x <= tDelta.z) ? 1.0 : 0.0,
                         (tDelta.y <= tDelta.x && tDelta.y <= tDelta.z) ? 1.0 : 0.0,
@@ -146,7 +164,7 @@ Shader "Unlit/SmokeMask"
                 //return float4(rawDepth,rawDepth,rawDepth, 1);
                 //  if (rawDepth <= 0.0001 || rawDepth >= 0.9999)
                 //  {
-                //      // 深度无效（天空盒或未启用深度纹理）
+                //      // Invalid Depth
                 //      return float4(1, 0, 0, 1);  // 红色警告
                 //  }
                 // return float4(rawDepth,rawDepth,rawDepth, 1);
@@ -200,7 +218,7 @@ Shader "Unlit/SmokeMask"
                     if (rayStart >= maxDist) 
                         continue;
                     
-                    return float4(1,1,0,1);   
+                    //return float4(1,1,0,1);   
                     
                     //return float4(1,1,0,1);   
                     // the position hit the AABB box
@@ -219,7 +237,7 @@ Shader "Unlit/SmokeMask"
                         smoke.volumeIndex
                     ))
                     {
-                        //return float4(0,1,1,1);
+                        return float4(0,1,1,1);
                         smokeMask |= (1u << i);
                     }
                 }

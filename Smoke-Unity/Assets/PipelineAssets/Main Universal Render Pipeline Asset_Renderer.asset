@@ -75,4 +75,5 @@ MonoBehaviour:
   settings:
     smokeMaskRenderPassEvent: 600
     smokeMaskMaterial: {fileID: 2100000, guid: a05040bc5b5a2ae4b8723965c0d8a4b0, type: 2}
-    downSample: 2
+    downSample: 4
+    VoxelSize: 1

@@ -19,10 +19,11 @@ public class SmokeVolumeManager : MonoBehaviour
         public Vector3 position;      // 12 bytes
         public int volumeIndex;       // 4 bytes
         public Vector3 aabbMin;       // 12 bytes
+        public float padding1;
         public Vector3 aabbMax;       // 12 bytes (padding to 16-byte boundary)
+        public float padding2;
         public Vector3 tint;          // 12 bytes
         public float intensity;       // 4 bytes
-        // Total: 56 bytes per smoke
     }
     
     // ===== Inspector配置 =====

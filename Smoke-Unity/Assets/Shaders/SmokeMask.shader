@@ -10,7 +10,11 @@ Shader "Unlit/SmokeMask"
     SubShader
     {
         Tags { "RenderType"="Opaque" "RenderPipeline" = "UniversalPipeline"}
-
+        
+        //ZTest Always
+        ZWrite Off
+        Cull Off
+        
         Pass
         {
             HLSLPROGRAM
@@ -26,7 +30,9 @@ Shader "Unlit/SmokeMask"
                 float3 position;
                 int volumeIndex;
                 float3 aabbMin;
+                float padding1;
                 float3 aabbMax;
+                float padding2;
                 float3 tint;
                 float intensity;
             };
@@ -49,6 +55,9 @@ Shader "Unlit/SmokeMask"
             
             sampler2D _MainTex;
             float4 _MainTex_ST;
+
+            float4x4 _InvVP;
+            float3 _CameraPosCS;
         
             bool TraverseVoxels(
                 float3 startPos,
@@ -117,7 +126,7 @@ Shader "Unlit/SmokeMask"
                 float2 uv = float2((input.vertexID << 1) & 2, input.vertexID & 2);
                 output.positionCS  = float4(uv * 2.0 - 1.0, 0.0, 1.0);
                 output.uv = uv;
-                
+
                 #if UNITY_UV_STARTS_AT_TOP
                     output.uv.y = 1.0 - output.uv.y;
                 #endif
@@ -130,10 +139,11 @@ Shader "Unlit/SmokeMask"
                 //return float4(1,1,1,1);
                 float rawDepth = SampleSceneDepth(input.uv);
 
+                
                 // #if defined(UNITY_REVERSED_Z)
                 //     rawDepth = 1.0 - rawDepth;
                 // #endif
-
+                //return float4(rawDepth,rawDepth,rawDepth, 1);
                 //  if (rawDepth <= 0.0001 || rawDepth >= 0.9999)
                 //  {
                 //      // 深度无效（天空盒或未启用深度纹理）
@@ -141,15 +151,22 @@ Shader "Unlit/SmokeMask"
                 //  }
                 // return float4(rawDepth,rawDepth,rawDepth, 1);
                 
-                float4 ndc = float4(input.uv.x * 2.0 - 1.0, input.uv.y * 2.0 - 1.0, rawDepth, 1.0);
-
-                float4 worldPos = mul(UNITY_MATRIX_I_VP, ndc);
+                float4 ndc = float4(
+                    input.uv.x * 2.0 - 1.0,
+                    (1.0 - input.uv.y) * 2.0 - 1.0,
+                    rawDepth,
+                    1.0
+                );
+                
+                float4 worldPos = mul(_InvVP, ndc);
                 float3 worldPosition = worldPos.xyz / worldPos.w;
 
-                float3 cameraPos = _WorldSpaceCameraPos;
+                float3 cameraPos = _CameraPosCS;
                 float3 rayDir = normalize(worldPosition - cameraPos);
                 float maxDist = length(worldPosition - cameraPos);
 
+                //return float4(maxDist / 20.0, 0, 0, 1);
+                
                 uint smokeMask = 0;
                 // iterate through smokes
                 for (int i = 0; i < _SmokeCount; i++)
@@ -167,6 +184,9 @@ Shader "Unlit/SmokeMask"
                     float tMin = max(max(tNear.x, tNear.y), tNear.z);
                     float tMax = min(min(tFar.x, tFar.y), tFar.z);
 
+
+                    //return float4(1,1,0,1);   
+                    
                     // no intersection
                     if (tMin > tMax || tMax < 0.0) 
                         continue;
@@ -179,7 +199,6 @@ Shader "Unlit/SmokeMask"
                     // exceed means is behind the object
                     if (rayStart >= maxDist) 
                         continue;
-
                     
                     return float4(1,1,0,1);   
                     

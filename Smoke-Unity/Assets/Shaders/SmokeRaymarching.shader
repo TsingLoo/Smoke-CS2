@@ -1,4 +1,4 @@
-Shader "Unlit/SmokeMask"
+Shader "Unlit/SmokeRaymarching"
 {
     Properties
     {
@@ -56,6 +56,18 @@ Shader "Unlit/SmokeMask"
             static const float _AtlasSliceWidth = 34.0;
             static const float _AtlasTextureWidth = 542.0;
             static const uint _MaxDDASteps = 32;
+
+            struct RaymarchOutput
+            {
+                float  OpticalDepth  : SV_Target0; // RFloat
+                float2 Moments       : SV_Target1; // RGFloat
+                float4 HigherMoments : SV_Target2; // ARGBHalf
+                float4 SmokeColor    : SV_Target3; // ARGBHalf
+                float2 DepthRange    : SV_Target4; // RGFloat
+            };
+
+            TEXTURE2D(_SmokeMask);
+            SAMPLER(sampler_PointClamp);
             
             float4x4 _InvVP;
             float3 _CameraPosCS;
@@ -149,6 +161,7 @@ Shader "Unlit/SmokeMask"
 
             float4 frag (v2f input) : SV_Target
             {
+                //uint smokeMask = texelFetch(_SmokeMask, uv).x;
                 //return float4(1,1,1,1);
                 float rawDepth = SampleSceneDepth(input.uv);
 
@@ -240,9 +253,8 @@ Shader "Unlit/SmokeMask"
                 if (smokeMask == 0)
                     discard;  // this fragment is not in smoke
 
-
                 //return float4(1,1,1,1);
-                return float4(float(smokeMask), 0, 0, 1);
+                return smokeMask;
             }
             ENDHLSL
         }

@@ -7,19 +7,27 @@ public class SmokeGrenadeRendererFeature : ScriptableRendererFeature
     [System.Serializable]
     public class Settings
     {
+        [Header("General")]
+        [Range(1, 4)] public int downSample = 2;
+        [Range(1.0f, 640.0f)] public float VoxelSize = 4.0f;
+        
+        [Header("SmokeMask")]
         public RenderPassEvent smokeMaskRenderPassEvent = RenderPassEvent.AfterRenderingOpaques;
         public Material smokeMaskMaterial;
-        [Range(1, 4)] public int downSample = 2;
 
-        [Range(1.0f, 640.0f)] public float VoxelSize = 4.0f;
+        [Header("Raymarching")]
+        public RenderPassEvent smokeRaymarchingPassEvent = RenderPassEvent.AfterRenderingOpaques;
+        public Material smokeRaymarchingPassMaterial;
     }
     
     public Settings settings = new Settings();
     private SmokeMaskPass smokeMaskPass;
+    private SmokeRaymarchingPass smokeRaymarchingPass;
     
     public override void Create()
     {
         smokeMaskPass = new SmokeMaskPass(settings);
+        smokeRaymarchingPass = new SmokeRaymarchingPass(settings);
     }
     
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
@@ -30,5 +38,6 @@ public class SmokeGrenadeRendererFeature : ScriptableRendererFeature
     protected override void Dispose(bool disposing)
     {
         smokeMaskPass?.Dispose();
+        smokeRaymarchingPass?.Dispose();
     }
 }

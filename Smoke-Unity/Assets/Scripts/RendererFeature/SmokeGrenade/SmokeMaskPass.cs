@@ -4,7 +4,7 @@ using UnityEngine.Rendering.Universal;
 
  class SmokeMaskPass : ScriptableRenderPass
     {
-        private int downSample = 2;
+        private int m_DownSample = 2;
         private Material material;
         private RTHandle m_SmokeMaskHandle;
         public RTHandle MSmokeMaskHandle => m_SmokeMaskHandle;
@@ -16,20 +16,20 @@ using UnityEngine.Rendering.Universal;
             material = settings.smokeMaskMaterial;
             renderPassEvent = settings.smokeMaskRenderPassEvent;
             
-            this.downSample = settings.downSample;
+            this.m_DownSample = settings.downSample;
             this.voxelSize = settings.VoxelSize;
         }
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             var descriptor = renderingData.cameraData.cameraTargetDescriptor;
-            descriptor.width /= downSample;
-            descriptor.height /= downSample;
-            descriptor.colorFormat = RenderTextureFormat.ARGBFloat;
+            descriptor.width /= m_DownSample;
+            descriptor.height /= m_DownSample;
+            descriptor.colorFormat = RenderTextureFormat.RHalf;
             descriptor.depthBufferBits = 0;
             descriptor.msaaSamples = 1;
             
-            RenderingUtils.ReAllocateIfNeeded(ref m_SmokeMaskHandle, descriptor, name: "_SmokeMaskRT");
+            RenderingUtils.ReAllocateIfNeeded(ref m_SmokeMaskHandle, descriptor, name: "_SmokeMask");
         }
         
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -62,8 +62,10 @@ using UnityEngine.Rendering.Universal;
                 
                 cmd.SetGlobalTexture("_SmokeMask", m_SmokeMaskHandle);
                 
+#if false
                 RTHandle cameraTarget = renderingData.cameraData.renderer.cameraColorTargetHandle;
                 Blitter.BlitCameraTexture(cmd, m_SmokeMaskHandle, cameraTarget);
+#endif
             }
             
             context.ExecuteCommandBuffer(cmd);

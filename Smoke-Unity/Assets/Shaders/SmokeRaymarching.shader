@@ -47,8 +47,8 @@ Shader "Unlit/SmokeRaymarching"
             static const float _AtlasTextureWidth = 542.0;
             static const uint _MaxDDASteps = 32;
 
-            static const float _RaymarchingMaxDistance = 100;
-            static const float _RaymarchingStepSize = 0.5;
+            static const float _MaxSteps = 200;
+            static const float _RaymarchingStepSize = 0.2;
             
             struct RaymarchOutput
             {
@@ -64,6 +64,9 @@ Shader "Unlit/SmokeRaymarching"
             
             float4x4 _InvVP;
             float3 _CameraPosCS;
+            
+            float3 _LightDir; 
+            float3 _LightColor;
 
             v2f vert (appdata input)
             {
@@ -108,7 +111,7 @@ Shader "Unlit/SmokeRaymarching"
                 
                 float3 cameraPos = _CameraPosCS;
                 float3 rayDir = normalize(worldPosition - cameraPos);
-                float maxDist = length(worldPosition - cameraPos);
+                float maxDistBeforeHitTheScene = length(worldPosition - cameraPos);
                 //return float4(maskRaw,0 ,maskRaw,1);
                 // if (rawDepth <= 0.0001 || rawDepth >= 0.9999)
                 // {
@@ -146,11 +149,11 @@ Shader "Unlit/SmokeRaymarching"
                     }
                     
                     float rayStart = max(0.0, tMin);
-                    if (rayStart >= maxDist)
+                    if (rayStart >= maxDistBeforeHitTheScene)
                         continue;
                     
                     activeSmokes[activeSmokeCount].tMin = rayStart;
-                    activeSmokes[activeSmokeCount].tMax = min(tMax, maxDist);
+                    activeSmokes[activeSmokeCount].tMax = min(tMax, maxDistBeforeHitTheScene);
                     activeSmokes[activeSmokeCount].index = i;
                     activeSmokeCount++;
                     
@@ -158,35 +161,66 @@ Shader "Unlit/SmokeRaymarching"
                         break;
                 }
 
+                if (activeSmokeCount == 0)
+                    discard;
+
                 //return float4(activeSmokeCount/16.0, 0, 0, 1);
 
-                //raymarching
-                for (float progress = 0; progress < _RaymarchingMaxDistance; progress += _RaymarchingStepSize)
-                {
-                    float t = _RaymarchingStepSize * float(progress);
+                //Raymarching
 
-                    if (t >= _RaymarchingMaxDistance)
+                //figure out the range of the ray inside valid AABBs
+                float globalStartT = 999999.0;
+                float globalEndT = 0.0;
+
+                for (int k = 0; k < activeSmokeCount; k++)
+                {
+                    globalStartT = min(globalStartT, activeSmokes[k].tMin);
+                    globalEndT = max(globalEndT, activeSmokes[k].tMax);
+                }
+                
+                //valid rayLength
+                float rayLength = globalEndT - globalStartT;
+
+                //calculate how many steps are required to go through this length
+                int numSteps = (int)clamp(ceil(rayLength / _RaymarchingStepSize) + 10.0, 1.0, float(_MaxSteps));
+                
+                float4 accumulatedColor = float4(0, 0, 0, 0);  // SmokeColor
+                float opticalDepth = 0.0;  // OpticalDepth
+                float lightEnergy = 0.0;   
+
+                //init ray using the first hit smoke in the array
+                float3 rayStart = cameraPos + rayDir * globalStartT;
+                //float3 rayEnd = cameraPos + rayDir * min(activeSmokes[0].tMax, maxDistBeforeHitTheScene);
+
+                float3 currentWorldPos = rayStart;
+                float currentT = globalStartT;
+                
+                
+                for (float currentStep = 0; currentStep < numSteps; currentStep ++)
+                {
+                    if (currentT >= globalEndT || currentT >= maxDistBeforeHitTheScene)
                         break;
 
-                    float3 samplePos = cameraPos + rayDir * t;
-
+                    float maxDensity = 0.0;
+                    float3 dominantColor = float3(0, 0, 0);
+                    float dominantIntensity = 1.0;
+                    int dominantIndex = -1;
+                    float totalExtinction = 0.0;  // 总消光系数
+                    float3 totalScattering = float3(0, 0, 0);  // 总散射颜色
                     
-                    for (int i = 0; i < activeSmokeCount; i++) 
+                    [loop]
+                    for (int j = 0; j < activeSmokeCount; j++)
                     {
-                        // t is beyound the AABB box
-                         if (t < activeSmokes[i].tMin || t > activeSmokes[i].tMax)
-                             continue;
+                        if (currentT < activeSmokes[j].tMin || currentT > activeSmokes[j].tMax)
+                            continue;
 
-                        //return float4(activeSmokeCount/16.0,0 ,maskRaw,1);
-                        
-                        int smokeIdx = activeSmokes[i].index;
+                        int smokeIdx = activeSmokes[j].index;
                         SmokeVolume smoke = _SmokeVolumes[smokeIdx];
-                        
-                        //not supposed to log the density to see the reusult, because we are sampling the air
-                        float4 density = SampleSmokeDensity(
+
+                        float4 smokeData = SampleSmokeDensity(
                             _SmokeTex3D,
                             sampler_SmokeTex3D,
-                            samplePos,
+                            currentWorldPos,
                             smoke.position,
                             smoke.volumeIndex,
                             _VolumeSize,
@@ -194,11 +228,72 @@ Shader "Unlit/SmokeRaymarching"
                             _AtlasTextureWidth,
                             _AtlasSliceWidth
                         );
-                        
+
+                        //
+                        //float blendFactor = smoke.tint.y;
+                        float blendFactor = 0.5f;
+                        float2 blended = lerp(smokeData.xz, smokeData.yw, blendFactor);
+                        float density = blended.x;
+
+                        if (density > 0.01)
+                        {
+                            float adjustedDensity = clamp((density - 0.01) * 1.0101, 0.0, 1.0);
+                            float scaledDensity = adjustedDensity * smoke.intensity;
+                            
+                            totalExtinction += scaledDensity;
+                            totalScattering += smoke.tint * scaledDensity;
+                        }
                     }
+
+                    //return float4(totalExtinction,totalExtinction,totalExtinction,1);
+                    //return float4(maxDensity,maxDensity,maxDensity,1);
+
+                    if (totalExtinction  > 0.01)
+                    {
+                        // calculate alpha
+                        // float _20845 = clamp(clamp((_6665 - 0.00999999977648258209228515625) * 1.01010096073150634765625, 0.0, 1.0), 0.0, 1.0) * _4023._m5._m0[_25082].x;
+                        float adjustedDensity = clamp((maxDensity - 0.01) * 1.0101, 0.0, 1.0);
+                        float densityScale = adjustedDensity * dominantIntensity;
+                        
+                        // light calculating
+                        // float _15561 = dot(mix(_21940, _19632, vec3(_5618._m6)), _5538._m0.xyz);
+                        float lightDot = max(0.0, dot(normalize(rayDir), normalize(_LightDir)));
+                        float lighting = 0.75 + (lightDot * 0.25);
+                        
+                        // color ontribution
+                        float3 stepColor = dominantColor * densityScale * lighting;
+                        
+                        // smoothstep alpha
+                        // float _17656 = smoothstep(0.0, 0.20000000298023223876953125 / (...), _13439);
+                        float alpha = smoothstep(0.0, 0.2, adjustedDensity) * 0.1;
+                        
+                        // forward blend
+                        // _19916 = _16311 + (_22501 * (1.0 - _16311.w));
+                        accumulatedColor.rgb += stepColor * alpha * (1.0 - accumulatedColor.a);
+                        accumulatedColor.a += alpha * (1.0 - accumulatedColor.a);
+                        
+                        // optical depth
+                        opticalDepth += totalExtinction  * _RaymarchingStepSize;
+                        
+                        // if (_13637.w > 0.990999996662139892578125)
+                        if (accumulatedColor.a >= 0.99)
+                        {
+                            accumulatedColor.a = 1.0;
+                            
+                            return accumulatedColor;
+                        }
+                    }
+
+                    currentWorldPos += rayDir * _RaymarchingStepSize;
+                    currentT += _RaymarchingStepSize;
                 }
 
-                return float4(0, 0, 0, 1);
+                return float4(opticalDepth,opticalDepth,opticalDepth,1);
+
+                if (accumulatedColor.a < 0.00001)
+                    discard;
+
+                return accumulatedColor;
             }
             ENDHLSL
         }

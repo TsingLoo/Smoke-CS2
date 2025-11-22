@@ -16,6 +16,11 @@ public class Texture3DViewer : EditorWindow
     private int sliceY = 0;
     private int sliceZ = 15;
     
+    // 自动播放控制 (新增功能)
+    private bool isPlaying = false;
+    private double lastPlayTime = 0;
+    private float playSpeed = 0.05f; // 每次切片的间隔时间（秒）
+    
     // Volume控制
     private float densityMultiplier = 1.0f;
     private float alphaThreshold = 0.01f;
@@ -51,13 +56,45 @@ public class Texture3DViewer : EditorWindow
     {
         CreatePreviewMaterial();
     }
+
+    // 新增：每一帧更新逻辑，用于处理自动播放
+    void Update()
+    {
+        if (isPlaying && texture3D != null)
+        {
+            // 检查时间间隔
+            if (EditorApplication.timeSinceStartup - lastPlayTime > playSpeed)
+            {
+                lastPlayTime = EditorApplication.timeSinceStartup;
+                
+                // 根据当前模式增加 Slice 值
+                switch (currentMode)
+                {
+                    case ViewMode.SliceX:
+                        sliceX++;
+                        if (sliceX >= texture3D.width) sliceX = 0; // 循环
+                        break;
+                    case ViewMode.SliceY:
+                        sliceY++;
+                        if (sliceY >= texture3D.height) sliceY = 0; // 循环
+                        break;
+                    case ViewMode.SliceZ:
+                        sliceZ++;
+                        if (sliceZ >= texture3D.depth) sliceZ = 0; // 循环
+                        break;
+                }
+                
+                // 强制重绘窗口以显示更新
+                Repaint();
+            }
+        }
+    }
     
     void CreatePreviewMaterial()
     {
         Shader shader = Shader.Find("Hidden/Texture3DPreview");
         if (shader == null)
         {
-            // 创建简单的预览shader
             shader = Shader.Find("Unlit/Texture");
         }
         previewMaterial = new Material(shader);
@@ -98,23 +135,61 @@ public class Texture3DViewer : EditorWindow
         
         // 查看模式
         EditorGUILayout.LabelField("View Mode", EditorStyles.boldLabel);
-        currentMode = (ViewMode)EditorGUILayout.EnumPopup("Mode", currentMode);
+        ViewMode newMode = (ViewMode)EditorGUILayout.EnumPopup("Mode", currentMode);
+        if (newMode != currentMode)
+        {
+            currentMode = newMode;
+            isPlaying = false; // 切换模式时停止播放
+        }
         EditorGUILayout.Space();
         
         // Slice控制
         if (texture3D != null)
         {
+            bool showPlayControls = false;
+
             if (currentMode == ViewMode.SliceX || currentMode == ViewMode.AllSlices)
             {
                 sliceX = EditorGUILayout.IntSlider("Slice X", sliceX, 0, texture3D.width - 1);
+                if (currentMode == ViewMode.SliceX) showPlayControls = true;
             }
             if (currentMode == ViewMode.SliceY || currentMode == ViewMode.AllSlices)
             {
                 sliceY = EditorGUILayout.IntSlider("Slice Y", sliceY, 0, texture3D.height - 1);
+                if (currentMode == ViewMode.SliceY) showPlayControls = true;
             }
             if (currentMode == ViewMode.SliceZ || currentMode == ViewMode.AllSlices)
             {
                 sliceZ = EditorGUILayout.IntSlider("Slice Z", sliceZ, 0, texture3D.depth - 1);
+                if (currentMode == ViewMode.SliceZ) showPlayControls = true;
+            }
+
+            // 新增：播放控制区域
+            if (showPlayControls)
+            {
+                EditorGUILayout.Space(5);
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                
+                // 播放按钮
+                Color originalColor = GUI.backgroundColor;
+                GUI.backgroundColor = isPlaying ? Color.red : Color.green;
+                if (GUILayout.Button(isPlaying ? "Stop Playing" : "Auto Play Slice"))
+                {
+                    isPlaying = !isPlaying;
+                    lastPlayTime = EditorApplication.timeSinceStartup;
+                }
+                GUI.backgroundColor = originalColor;
+
+                // 速度控制
+                if (isPlaying)
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField("Speed", GUILayout.Width(40));
+                    playSpeed = EditorGUILayout.Slider(playSpeed, 0.01f, 0.5f);
+                    EditorGUILayout.EndHorizontal();
+                }
+                
+                EditorGUILayout.EndVertical();
             }
         }
         

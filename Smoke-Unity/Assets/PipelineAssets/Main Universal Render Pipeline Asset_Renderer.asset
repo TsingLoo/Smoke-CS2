@@ -73,7 +73,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Active: 1
   settings:
-    downSample: 2
+    downSample: 1
     VoxelSize: 8
     smokeMaskRenderPassEvent: 200
     smokeMaskMaterial: {fileID: 2100000, guid: a05040bc5b5a2ae4b8723965c0d8a4b0, type: 2}

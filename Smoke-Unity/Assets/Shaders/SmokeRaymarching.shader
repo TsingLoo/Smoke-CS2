@@ -7,11 +7,12 @@ Shader "Unlit/SmokeRaymarching"
     }
     SubShader
     {
-        Tags { "RenderType"="Opaque" "RenderPipeline" = "UniversalPipeline"}
+        Tags { "RenderType"="Transparent" "Queue"="Transparent" "RenderPipeline" = "UniversalPipeline"}
         
         //ZTest Always
         ZWrite Off
         Cull Off
+        Blend SrcAlpha OneMinusSrcAlpha
         
         Pass
         {
@@ -22,6 +23,7 @@ Shader "Unlit/SmokeRaymarching"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Assets/Shaders/Include/Utils.hlsl"
             
             struct appdata
@@ -37,9 +39,29 @@ Shader "Unlit/SmokeRaymarching"
 
             StructuredBuffer<SmokeVolume> _SmokeVolumes;
             int _SmokeCount;
+            
             Texture3D _SmokeTex3D;
             SamplerState sampler_SmokeTex3D;
 
+            Texture3D _NoiseTex3D;
+            SamplerState sampler_NoiseTex3D;
+            
+            Texture3D _ColorLUT3D;
+            SamplerState sampler_ColorLUT3D;
+            
+            TEXTURE2D(_SmokeMask);
+            SAMPLER(sampler_SmokeMask);
+
+            // Properties
+            float _NoiseScale;
+            float _NoiseStrength;
+            float _DetailNoiseScale;
+            float _Anisotropy;
+            float _AmbientStrength;
+            float _PhaseStrength;
+            float _ColorBoost;
+            float _Saturation;
+            float _DensityMultiplier;
             
             float _VolumeSize = 640.0;
             static const float _VoxelResolution = 32.0;
@@ -58,16 +80,10 @@ Shader "Unlit/SmokeRaymarching"
                 float4 SmokeColor    : SV_Target3; // ARGBHalf
                 float2 DepthRange    : SV_Target4; // RGFloat
             };
-
-            TEXTURE2D(_SmokeMask);
-            SAMPLER(sampler_SmokeMask);
             
             float4x4 _InvVP;
             float3 _CameraPosCS;
             
-            float3 _LightDir; 
-            float3 _LightColor;
-
             v2f vert (appdata input)
             {
                 v2f output;
@@ -186,7 +202,7 @@ Shader "Unlit/SmokeRaymarching"
                 
                 float4 accumulatedColor = float4(0, 0, 0, 0);  // SmokeColor
                 float opticalDepth = 0.0;  // OpticalDepth
-                float lightEnergy = 0.0;   
+                float luminance = 0.0;   
 
                 //init ray using the first hit smoke in the array
                 float3 rayStart = cameraPos + rayDir * globalStartT;
@@ -194,19 +210,24 @@ Shader "Unlit/SmokeRaymarching"
 
                 float3 currentWorldPos = rayStart;
                 float currentT = globalStartT;
+
+                Light mainLight = GetMainLight();
+                float3 lightDir = mainLight.direction;
+                float3 lightColor = mainLight.color;
+
+                float cosTheta = dot(-rayDir, lightDir);
+                float phase = PhaseHG(cosTheta, _Anisotropy);
                 
-                
+                [loop]
                 for (float currentStep = 0; currentStep < numSteps; currentStep ++)
                 {
                     if (currentT >= globalEndT || currentT >= maxDistBeforeHitTheScene)
                         break;
 
-                    float maxDensity = 0.0;
-                    float3 dominantColor = float3(0, 0, 0);
-                    float dominantIntensity = 1.0;
+                    float3 dominantPos = currentWorldPos;
                     int dominantIndex = -1;
-                    float totalExtinction = 0.0;  // 总消光系数
-                    float3 totalScattering = float3(0, 0, 0);  // 总散射颜色
+                    float totalExtinction = 0.0;
+                    float3 totalScattering = float3(0, 0, 0);
                     
                     [loop]
                     for (int j = 0; j < activeSmokeCount; j++)
@@ -216,7 +237,7 @@ Shader "Unlit/SmokeRaymarching"
 
                         int smokeIdx = activeSmokes[j].index;
                         SmokeVolume smoke = _SmokeVolumes[smokeIdx];
-
+                        smoke.tint = float3(1.0f, 1.0f ,1.0f);
                         float4 smokeData = SampleSmokeDensity(
                             _SmokeTex3D,
                             sampler_SmokeTex3D,
@@ -233,54 +254,59 @@ Shader "Unlit/SmokeRaymarching"
                         //float blendFactor = smoke.tint.y;
                         float blendFactor = 0.5f;
                         float2 blended = lerp(smokeData.xz, smokeData.yw, blendFactor);
-                        float density = blended.x;
+                        float rawDensity = blended.x;
 
-                        if (density > 0.01)
+                        if (rawDensity > 0.01)
                         {
-                            float adjustedDensity = clamp((density - 0.01) * 1.0101, 0.0, 1.0);
-                            float scaledDensity = adjustedDensity * smoke.intensity;
+                            float adjustedDensity = clamp((rawDensity - 0.01) * 1.0101, 0.0, 1.0);
+                            float scaledDensity = adjustedDensity * smoke.intensity* _DensityMultiplier;
+
+                            float noiseValue = SampleLayeredNoise(_NoiseTex3D, sampler_NoiseTex3D, _NoiseScale, _DetailNoiseScale, currentWorldPos, _Time);
+                            float noiseMod = 1.0 + (noiseValue - 0.5) * _NoiseStrength;
+                            scaledDensity *= noiseMod;
+
+                            if (scaledDensity > totalExtinction)
+                            {
+                                dominantIndex = smokeIdx;
+                                dominantPos = currentWorldPos;
+                            }
                             
                             totalExtinction += scaledDensity;
-                            totalScattering += smoke.tint * scaledDensity;
+                            totalScattering += smoke.tint.rgb * scaledDensity;
                         }
                     }
-
-                    //return float4(totalExtinction,totalExtinction,totalExtinction,1);
-                    //return float4(maxDensity,maxDensity,maxDensity,1);
-
-                    if (totalExtinction  > 0.01)
+                    
+                    if (totalExtinction > 0.01)
                     {
-                        // calculate alpha
-                        // float _20845 = clamp(clamp((_6665 - 0.00999999977648258209228515625) * 1.01010096073150634765625, 0.0, 1.0), 0.0, 1.0) * _4023._m5._m0[_25082].x;
-                        float adjustedDensity = clamp((maxDensity - 0.01) * 1.0101, 0.0, 1.0);
-                        float densityScale = adjustedDensity * dominantIntensity;
+                        if (dominantIndex >= 0)
+                        {
+                            SmokeVolume smoke = _SmokeVolumes[dominantIndex];
+                            float3 localPos = (dominantPos - smoke.position) / _VolumeSize;
+                            float3 normalizedPos = clamp(localPos * 0.5 + 0.5, 0.0, 1.0);
+                            
+                            float3 lutColor = SampleColorLUT(_ColorLUT3D, sampler_ColorLUT3D, _AtlasTextureWidth, _AtlasSliceWidth, _Saturation, _ColorBoost, normalizedPos, totalExtinction, smoke.volumeIndex);
+                            totalScattering = lerp(totalScattering, lutColor * totalExtinction, 0.5);
+                        }
                         
-                        // light calculating
-                        // float _15561 = dot(mix(_21940, _19632, vec3(_5618._m6)), _5538._m0.xyz);
-                        float lightDot = max(0.0, dot(normalize(rayDir), normalize(_LightDir)));
-                        float lighting = 0.75 + (lightDot * 0.25);
+                        float stepOpticalDepth = totalExtinction * _RaymarchingStepSize;
+                        float transmittance = exp(-stepOpticalDepth);
+                        float3 inScattering = totalScattering * (1.0 - transmittance) / max(totalExtinction, 0.0001);
+
+                        float lighting = _AmbientStrength + (phase * _PhaseStrength);
+                        float3 litScattering = inScattering * lighting * lightColor;
+                        litScattering += inScattering * lightColor * (phase * 0.5 * (1.0 - _NoiseStrength));
+
+                        float stepAlpha = 1.0 - transmittance;
+                        accumulatedColor.rgb += litScattering * stepAlpha * (1.0 - accumulatedColor.a);
+                        accumulatedColor.a += stepAlpha * (1.0 - accumulatedColor.a);
+
+                        opticalDepth += stepOpticalDepth;
+                        luminance += length(litScattering) * stepAlpha;
                         
-                        // color ontribution
-                        float3 stepColor = dominantColor * densityScale * lighting;
-                        
-                        // smoothstep alpha
-                        // float _17656 = smoothstep(0.0, 0.20000000298023223876953125 / (...), _13439);
-                        float alpha = smoothstep(0.0, 0.2, adjustedDensity) * 0.1;
-                        
-                        // forward blend
-                        // _19916 = _16311 + (_22501 * (1.0 - _16311.w));
-                        accumulatedColor.rgb += stepColor * alpha * (1.0 - accumulatedColor.a);
-                        accumulatedColor.a += alpha * (1.0 - accumulatedColor.a);
-                        
-                        // optical depth
-                        opticalDepth += totalExtinction  * _RaymarchingStepSize;
-                        
-                        // if (_13637.w > 0.990999996662139892578125)
                         if (accumulatedColor.a >= 0.99)
                         {
                             accumulatedColor.a = 1.0;
-                            
-                            return accumulatedColor;
+                            break;
                         }
                     }
 
@@ -288,11 +314,18 @@ Shader "Unlit/SmokeRaymarching"
                     currentT += _RaymarchingStepSize;
                 }
 
-                return float4(opticalDepth,opticalDepth,opticalDepth,1);
+                return float4(opticalDepth,0,0,1);
 
                 if (accumulatedColor.a < 0.00001)
                     discard;
+                
+                return float4(opticalDepth,0,0,1);
 
+                #ifdef _FOG
+                    float fogFactor = ComputeFogFactor(currentT);
+                    accumulatedColor.rgb = MixFog(accumulatedColor.rgb, fogFactor);
+                #endif
+                
                 return accumulatedColor;
             }
             ENDHLSL

@@ -66,12 +66,13 @@ Shader "Unlit/SmokeRaymarching"
                 float2 DepthRange    : SV_Target4; // RGFloat
             };
 
-            TEXTURE2D(_SmokeMask);
-            SAMPLER(sampler_PointClamp);
+           TEXTURE2D(_SmokeMask);
+            SAMPLER(sampler_SmokeMask);
             
             float4x4 _InvVP;
             float3 _CameraPosCS;
-        
+            float _SmokeFlipY;
+            
             bool TraverseVoxels(
                 float3 startPos,
                 float3 rayDir,
@@ -161,22 +162,33 @@ Shader "Unlit/SmokeRaymarching"
 
             float4 frag (v2f input) : SV_Target
             {
-                //uint smokeMask = texelFetch(_SmokeMask, uv).x;
-                //return float4(1,1,1,1);
                 float rawDepth = SampleSceneDepth(input.uv);
-
+                uint maskRaw = SAMPLE_TEXTURE2D(_SmokeMask, sampler_SmokeMask, input.uv).x;
                 
-                // #if defined(UNITY_REVERSED_Z)
-                //     rawDepth = 1.0 - rawDepth;
-                // #endif
+                // if (rawDepth <= 0.0001 || rawDepth >= 0.9999)
+                // {
+                //     // Invalid Depth
+                //     return float4(1, 0, 0, 1);  // 红色警告
+                // }
                 //return float4(rawDepth,rawDepth,rawDepth, 1);
-                //  if (rawDepth <= 0.0001 || rawDepth >= 0.9999)
-                //  {
-                //      // Invalid Depth
-                //      return float4(1, 0, 0, 1);  // 红色警告
-                //  }
-                // return float4(rawDepth,rawDepth,rawDepth, 1);
-                
+
+                for (int i = 0; i <_SmokeCount; i++)
+                {
+                    if (maskRaw & (1u << i))  // 这个烟雾是激活的
+                    {
+                        // ⭐ 3. 再次做AABB测试！为什么？
+                        float3 aabbMin = _SmokeVolumes[i].aabbMin;
+                        float3 aabbMax = _SmokeVolumes[i].aabbMax;
+                        
+                        float tMin, tMax;
+                        // if (AABBIntersect(aabbMin, aabbMax, tMin, tMax))
+                        // {
+                        //     // 这个烟雾的射线起始/结束点
+                        //     activeSmokes.push({tMin, tMax, i});
+                        // }
+                    }
+                }
+                                
                 float4 ndc = float4(
                     input.uv.x * 2.0 - 1.0,
                     (1.0 - input.uv.y) * 2.0 - 1.0,
@@ -195,9 +207,9 @@ Shader "Unlit/SmokeRaymarching"
                 
                 uint smokeMask = 0;
                 // iterate through smokes
-                for (int i = 0; i < _SmokeCount; i++)
+                for (int smokeIndex = 0; smokeIndex < _SmokeCount; smokeIndex++)
                 {
-                    SmokeVolume smoke = _SmokeVolumes[i];
+                    SmokeVolume smoke = _SmokeVolumes[smokeIndex];
                     if (smoke.volumeIndex < 0) continue;
 
                     float3 invDir = 1.0 / (rayDir + 0.0001);
@@ -246,7 +258,7 @@ Shader "Unlit/SmokeRaymarching"
                     ))
                     {
                         //return float4(0,1,1,1);
-                        smokeMask |= (1u << i);
+                        smokeMask |= (1u << smokeIndex);
                     }
                 }
                 

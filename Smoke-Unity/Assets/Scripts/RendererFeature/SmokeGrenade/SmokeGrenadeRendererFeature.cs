@@ -33,6 +33,7 @@ public class SmokeGrenadeRendererFeature : ScriptableRendererFeature
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
         renderer.EnqueuePass(smokeMaskPass);
+        renderer.EnqueuePass(smokeRaymarchingPass);
     }
     
     protected override void Dispose(bool disposing)

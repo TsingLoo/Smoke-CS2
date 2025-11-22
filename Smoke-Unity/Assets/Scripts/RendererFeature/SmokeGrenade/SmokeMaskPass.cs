@@ -64,7 +64,7 @@ using UnityEngine.Rendering.Universal;
                 
 #if false
                 RTHandle cameraTarget = renderingData.cameraData.renderer.cameraColorTargetHandle;
-                Blitter.BlitCameraTexture(cmd, m_SmokeMaskHandle, cameraTarget);
+                Blitter.BlitCameraTexture(cmd, m_SmokeMaskHandle, cameraTarget, bilinear: false);
 #endif
             }
             

@@ -36,7 +36,7 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
         descriptor.msaaSamples = 1;
         
         var desc0 = descriptor;
-        desc0.colorFormat = RenderTextureFormat.RFloat;
+        desc0.colorFormat = RenderTextureFormat.ARGB32;
         RenderingUtils.ReAllocateIfNeeded(ref rt0_OpticalDepth, desc0, name: "_OpticalDepth");
 
         var desc1 = descriptor;
@@ -68,6 +68,12 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
 
         using (new ProfilingScope(cmd, new ProfilingSampler(profilerTag)))
         {
+            // if (smokeRaymarchingPassMaterial == null)
+            // {
+            //     Debug.LogWarning("[SmokeMaskPass] Material or target is null!");
+            //     return;
+            // }
+            
             CoreUtils.SetRenderTarget(
                 cmd,
                 mrtArray,
@@ -76,7 +82,7 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
                 Color.clear
             );
             
-            cmd.DrawProcedural(Matrix4x4.identity, smokeRaymarchingPassMaterial, 0, MeshTopology.Triangles, 3);
+            cmd.DrawProcedural(Matrix4x4.identity, smokeRaymarchingPassMaterial, 0, MeshTopology.Triangles, 3,1);
 
             cmd.SetGlobalTexture("_OpticalDepth", rt0_OpticalDepth);
             cmd.SetGlobalTexture("_Moments", rt1_Moments);
@@ -84,7 +90,10 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
             cmd.SetGlobalTexture("_SmokeColor", rt3_SmokeColor);
             cmd.SetGlobalTexture("_DepthRange", rt4_DepthRange);
             
-            
+#if true
+            RTHandle cameraTarget = renderingData.cameraData.renderer.cameraColorTargetHandle;
+            Blitter.BlitCameraTexture(cmd, rt0_OpticalDepth, cameraTarget);
+#endif
         }
         
         context.ExecuteCommandBuffer(cmd);

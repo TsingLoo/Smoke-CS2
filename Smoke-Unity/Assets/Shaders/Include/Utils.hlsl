@@ -50,33 +50,60 @@ float3 CalculateAtlasUVW(
     return float3(atlasU, swizzledUVW.y, swizzledUVW.z);
 }
 
+float4 SampleSmokeAtUVW(
+    Texture3D smokeTex,
+    SamplerState smokeSampler,
+    float3 uvw,
+    int volumeIndex,
+    float voxelResolution,
+    float atlasSliceWidth,
+    float atlasTextureWidthInv
+)
+{
+    // Check bounds
+    if (any(uvw < 0.0) || any(uvw > 1.0))
+        return 0.0;
+
+    //  Calculate UVW
+    float3 sampleUVW = CalculateAtlasUVW(
+        uvw, 
+        volumeIndex, 
+        voxelResolution, 
+        atlasSliceWidth, 
+        atlasTextureWidthInv
+    );
+    
+    // Sample
+    return smokeTex.SampleLevel(smokeSampler, sampleUVW, 0);
+}
+
 float4 SampleSmokeDensity(
     Texture3D smokeTex,
     SamplerState smokeSampler,
     float3 worldPos,
-    SmokeVolume smoke,
+    float3 volumeCenter,
+    int volumeIndex,
     float volumeSize,
+    float voxelResolution,
     float atlasTextureWidth,
-    float atlasSliceWidth,
-    float voxelResolution
+    float atlasSliceWidth
 )
 {
-    float3 localPos = (worldPos - smoke.position) + (volumeSize * 0.5);
+    float halfVolumeSize = volumeSize * 0.5;
+    
+    float3 localPos = (worldPos - volumeCenter) + halfVolumeSize;
     
     float3 uvw = localPos / volumeSize;
     
-    if (any(uvw < 0.0) || any(uvw > 1.0))
-        return 0.0;
-    
-    float3 sampleUVW = CalculateAtlasUVW(
+    return SampleSmokeAtUVW(
+        smokeTex, 
+        smokeSampler, 
         uvw, 
-        smoke.volumeIndex, 
+        volumeIndex, 
         voxelResolution, 
         atlasSliceWidth, 
         1.0 / atlasTextureWidth
     );
-    
-    return smokeTex.SampleLevel(smokeSampler, sampleUVW, 0);
 }
 
 
@@ -93,7 +120,6 @@ bool TraverseVoxels(
     float atlasTextureWidth,
     float atlasSliceWidth,
     uint maxDDASteps
-    
 )
 {
     float halfVolumeSize = volumeSize * 0.5;
@@ -105,30 +131,23 @@ bool TraverseVoxels(
     
     float3 localPos = (startPos - volumeCenter) + halfVolumeSize;
     float3 voxelPos = localPos * worldToVoxel;
-    
     voxelPos = clamp(voxelPos, 0.0, maxVoxelIndex);
     
-    // DDA Init
     int3 currentVoxel = int3(floor(voxelPos));
     int3 voxelStep = int3(sign(rayDir));
-    
-    float3 rayStepSize = abs(length(rayDir) / rayDir);
-    
+    float3 rayStepSize = abs(length(rayDir) / (rayDir + 1e-5));
     float3 stepDir = float3(voxelStep);
     float3 tDelta = ((stepDir * (float3(currentVoxel) - voxelPos)) + (stepDir * 0.5) + 0.5) * rayStepSize;
     
     [loop]
     for (uint i = 0; i < maxDDASteps; i++)
     {
-        // Voxel Index -> Normalized UVW (0 to 1)
-        float3 uvw = (float3(currentVoxel)) * voxelToNormalized;
 
-        // Bounds check
-        if (any(uvw < 0.0) || any(uvw > 1.0))
-            break; 
-
-        // calculate sample UVW
-        float3 sampleUVW = CalculateAtlasUVW(
+        float3 uvw = float3(currentVoxel) * voxelToNormalized;
+        
+        float4 smokeData = SampleSmokeAtUVW(
+            smokeTex, 
+            smokeSampler, 
             uvw, 
             volumeIndex, 
             voxelResolution, 
@@ -136,22 +155,15 @@ bool TraverseVoxels(
             atlasWidthInv
         );
         
-        float4 smokeData = smokeTex.SampleLevel(smokeSampler, sampleUVW, 0);
-        
         if (any(smokeData.xyzw > 0.0))
         {
             return true;
         }
-        
+
         float distTraveled = length((float3(currentVoxel) * voxelSize) - localPos);
         if (distTraveled > maxDist) break;
-        
-        float3 mask = float3(
-             (tDelta.x <= tDelta.y && tDelta.x <= tDelta.z) ? 1.0 : 0.0,
-             (tDelta.y <= tDelta.x && tDelta.y <= tDelta.z) ? 1.0 : 0.0,
-             (tDelta.z <= tDelta.x && tDelta.z <= tDelta.y) ? 1.0 : 0.0
-        );
-        
+
+        float3 mask = step(tDelta.xyz, min(tDelta.yzx, tDelta.zxy));
         tDelta += mask * rayStepSize;
         currentVoxel += int3(mask) * voxelStep;
     }

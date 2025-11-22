@@ -47,11 +47,8 @@ Shader "Unlit/SmokeRaymarching"
             static const float _AtlasTextureWidth = 542.0;
             static const uint _MaxDDASteps = 32;
 
-            static const float _RaymarchingMaxDistance = 1000;
-            static const float _RaymarchingStepSize = 10;
-            
-            ActiveSmoke activeSmokes[16];
-            int activeSmokeCount = 0;
+            static const float _RaymarchingMaxDistance = 100;
+            static const float _RaymarchingStepSize = 0.5;
             
             struct RaymarchOutput
             {
@@ -84,51 +81,84 @@ Shader "Unlit/SmokeRaymarching"
 
             float4 frag (v2f input) : SV_Target
             {
+                
                 float rawDepth = SampleSceneDepth(input.uv);
-                uint maskRaw = SAMPLE_TEXTURE2D(_SmokeMask, sampler_SmokeMask, input.uv).x;
-                return float4(maskRaw,maskRaw,maskRaw,1);
+                uint maskRaw = (SAMPLE_TEXTURE2D(_SmokeMask, sampler_SmokeMask, input.uv).r);
+                //return float4(maskRaw,maskRaw,maskRaw,1);
 
+                if (maskRaw == 0)
+                    discard;
+                
                 float4 ndc = float4(
                     input.uv.x * 2.0 - 1.0,
                     (1.0 - input.uv.y) * 2.0 - 1.0,
                     rawDepth,
                     1.0
                 );
+
+                ActiveSmoke activeSmokes[16];
+                int activeSmokeCount = 0;
+                
+                //return float4(maskRaw,maskRaw,maskRaw,1);
                 
                 float4 worldPos = mul(_InvVP, ndc);
                 float3 worldPosition = worldPos.xyz / worldPos.w;
+
+                
                 
                 float3 cameraPos = _CameraPosCS;
                 float3 rayDir = normalize(worldPosition - cameraPos);
-                
+                float maxDist = length(worldPosition - cameraPos);
+                //return float4(maskRaw,0 ,maskRaw,1);
                 // if (rawDepth <= 0.0001 || rawDepth >= 0.9999)
                 // {
                 //     // Invalid Depth
-                //     return float4(1, 0, 0, 1);  // 红色警告
+                //     return float4(1, 0, 0, 1);
                 // }
                 //return float4(rawDepth,rawDepth,rawDepth, 1);
 
                 //figure out which smokes this ray is hitting
+
                 
-                for (int i = 0; i <_SmokeCount; i++)
+
+                [loop]
+                for (int i = 0; i < _SmokeCount; i++)
                 {
-                    if (maskRaw & (1u << i))
+                    //return float4(maskRaw,0,maskRaw,1);
+                    if ((maskRaw & (1u << i)) == 0)
+                        continue;
+                    
+                    SmokeVolume smoke = _SmokeVolumes[i];
+                    if (smoke.volumeIndex < 0)
+                        continue;
+                    
+                    float tMin, tMax;
+                    if (!AABBIntersect(
+                        smoke.aabbMin,
+                        smoke.aabbMax,
+                        cameraPos,
+                        rayDir,
+                        tMin,
+                        tMax
+                    ))
                     {
-                        float3 aabbMin = _SmokeVolumes[i].aabbMin;
-                        float3 aabbMax = _SmokeVolumes[i].aabbMax;
-                        
-                        float tMin, tMax;
-                        if (AABBIntersect(aabbMin, aabbMax, cameraPos, rayDir, tMin, tMax ))
-                        {
-                            activeSmokes[activeSmokeCount].tMin = tMin;
-                            activeSmokes[activeSmokeCount].tMax = tMax;
-                            activeSmokes[activeSmokeCount].index = i;
-                            activeSmokeCount++;
-                        }
+                        continue;
                     }
+                    
+                    float rayStart = max(0.0, tMin);
+                    if (rayStart >= maxDist)
+                        continue;
+                    
+                    activeSmokes[activeSmokeCount].tMin = rayStart;
+                    activeSmokes[activeSmokeCount].tMax = min(tMax, maxDist);
+                    activeSmokes[activeSmokeCount].index = i;
+                    activeSmokeCount++;
+                    
+                    if (activeSmokeCount >= 16)
+                        break;
                 }
 
-                return float4(maskRaw,maskRaw,maskRaw,1);
+                //return float4(activeSmokeCount/16.0, 0, 0, 1);
 
                 //raymarching
                 for (float progress = 0; progress < _RaymarchingMaxDistance; progress += _RaymarchingStepSize)
@@ -139,6 +169,7 @@ Shader "Unlit/SmokeRaymarching"
                         break;
 
                     float3 samplePos = cameraPos + rayDir * t;
+
                     
                     for (int i = 0; i < activeSmokeCount; i++) 
                     {
@@ -146,25 +177,28 @@ Shader "Unlit/SmokeRaymarching"
                          if (t < activeSmokes[i].tMin || t > activeSmokes[i].tMax)
                              continue;
 
+                        //return float4(activeSmokeCount/16.0,0 ,maskRaw,1);
+                        
                         int smokeIdx = activeSmokes[i].index;
                         SmokeVolume smoke = _SmokeVolumes[smokeIdx];
-
-                        float density = SampleSmokeDensity(
+                        
+                        //not supposed to log the density to see the reusult, because we are sampling the air
+                        float4 density = SampleSmokeDensity(
                             _SmokeTex3D,
                             sampler_SmokeTex3D,
                             samplePos,
-                            smoke,
+                            smoke.position,
+                            smoke.volumeIndex,
                             _VolumeSize,
+                            _VoxelResolution,
                             _AtlasTextureWidth,
-                            _AtlasSliceWidth,
-                            _VoxelResolution
+                            _AtlasSliceWidth
                         );
-
-                        return float4(density, density, density, 1.0f);
+                        
                     }
                 }
 
-                return float4(1, 0, 0, 1);
+                return float4(0, 0, 0, 1);
             }
             ENDHLSL
         }

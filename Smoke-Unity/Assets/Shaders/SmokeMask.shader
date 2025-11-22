@@ -114,16 +114,22 @@ Shader "Unlit/SmokeMask"
                         tMax
                     ))
                     {
-                        float3 startPos = cameraPos + rayDir * max(0.0, tMin);
+                        float rayStart = max(0.0, tMin);
+                        if (rayStart >= maxDist) 
+                            continue;
+                        
+                        float3 startPos = cameraPos + rayDir * rayStart;
+
+                        float maxTraverseDist = min(tMax, maxDist) - rayStart;
                         
                         if (TraverseVoxels(
                             _SmokeTex3D,
                             sampler_SmokeTex3D,
                             startPos,
                             rayDir,
-                            tMax - tMin,
+                            maxTraverseDist,
                             smoke.position,
-                            i,
+                            smoke.volumeIndex,
                             _VolumeSize,
                             _VoxelResolution,
                             _AtlasTextureWidth,

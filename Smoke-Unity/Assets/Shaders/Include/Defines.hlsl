@@ -12,4 +12,11 @@ struct SmokeVolume
     float intensity;
 };
 
+struct ActiveSmoke
+{
+    float tMin;
+    float tMax;
+    int index;
+};
+
 #endif

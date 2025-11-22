@@ -121,7 +121,7 @@ bool TraverseVoxels(
     for (uint i = 0; i < maxDDASteps; i++)
     {
         // Voxel Index -> Normalized UVW (0 to 1)
-        float3 uvw = (float3(currentVoxel) + 0.5) * voxelToNormalized;
+        float3 uvw = (float3(currentVoxel)) * voxelToNormalized;
 
         // Bounds check
         if (any(uvw < 0.0) || any(uvw > 1.0))
@@ -138,7 +138,7 @@ bool TraverseVoxels(
         
         float4 smokeData = smokeTex.SampleLevel(smokeSampler, sampleUVW, 0);
         
-        if (any(smokeData.r > 0.05))
+        if (any(smokeData.xyzw > 0.0))
         {
             return true;
         }
@@ -146,7 +146,11 @@ bool TraverseVoxels(
         float distTraveled = length((float3(currentVoxel) * voxelSize) - localPos);
         if (distTraveled > maxDist) break;
         
-        float3 mask = step(tDelta.xyz, min(tDelta.yzx, tDelta.zxy));
+        float3 mask = float3(
+             (tDelta.x <= tDelta.y && tDelta.x <= tDelta.z) ? 1.0 : 0.0,
+             (tDelta.y <= tDelta.x && tDelta.y <= tDelta.z) ? 1.0 : 0.0,
+             (tDelta.z <= tDelta.x && tDelta.z <= tDelta.y) ? 1.0 : 0.0
+        );
         
         tDelta += mask * rayStepSize;
         currentVoxel += int3(mask) * voxelStep;

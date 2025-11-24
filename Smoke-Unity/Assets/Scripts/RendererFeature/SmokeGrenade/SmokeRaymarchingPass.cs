@@ -17,17 +17,7 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
     
     private RTHandle[] mrtArray = new RTHandle[5];
     private RenderTargetIdentifier[] mrtIDs = new RenderTargetIdentifier[5];
-    
-    private const int IDX_NOISE_SCALE = 0;
-    private const int IDX_NOISE_STRENGTH = 1;
-    private const int IDX_DETAIL_NOISE_SCALE = 2;
-    private const int IDX_ANISOTROPY = 3;
-    private const int IDX_AMBIENT_STRENGTH = 4;
-    private const int IDX_PHASE_STRENGTH = 5;
-    private const int IDX_COLOR_BOOST = 6;
-    private const int IDX_SATURATION = 7;
-    private const int IDX_DENSITY_MULTIPLIER = 8;
-    private const int IDX_NOISE_SPEED = 9;
+
     
     private float[] m_smokeParams = new float[10];
     
@@ -39,17 +29,6 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
         this.renderPassEvent = settings.smokeRaymarchingPassEvent;
         
         this.m_DownSample = settings.downSample;
-        
-        this.m_smokeParams[IDX_NOISE_SCALE] = settings.noiseScale;
-        this.m_smokeParams[IDX_NOISE_STRENGTH] = settings.noiseStrength;
-        this.m_smokeParams[IDX_DETAIL_NOISE_SCALE] = settings.detailNoiseScale;
-        this.m_smokeParams[IDX_ANISOTROPY]    = settings.anisotropy;
-        this.m_smokeParams[IDX_AMBIENT_STRENGTH] = settings.ambientStrength;
-        this.m_smokeParams[IDX_PHASE_STRENGTH] = settings.phaseStrength;
-        this.m_smokeParams[IDX_COLOR_BOOST] = settings.colorBoost;
-        this.m_smokeParams[IDX_SATURATION] = settings.saturation;
-        this.m_smokeParams[IDX_DENSITY_MULTIPLIER] = settings.densityMultiplier;
-        this.m_smokeParams[IDX_NOISE_SPEED] = settings.noiseSpeed;
     }
 
     public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
@@ -120,8 +99,6 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
             cmd.SetGlobalTexture("_HigherMoments", rt2_HigherMoments);
             cmd.SetGlobalTexture("_SmokeColor", rt3_SmokeColor);
             cmd.SetGlobalTexture("_DepthRange", rt4_DepthRange);
-            
-            cmd.SetGlobalFloatArray(Shader.PropertyToID("_SmokeParams"), m_smokeParams);
             
 #if true
             RTHandle cameraTarget = renderingData.cameraData.renderer.cameraColorTargetHandle;

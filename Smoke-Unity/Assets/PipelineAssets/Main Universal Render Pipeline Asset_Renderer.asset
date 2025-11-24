@@ -79,13 +79,13 @@ MonoBehaviour:
     smokeMaskMaterial: {fileID: 2100000, guid: a05040bc5b5a2ae4b8723965c0d8a4b0, type: 2}
     smokeRaymarchingPassEvent: 400
     smokeRaymarchingPassMaterial: {fileID: 2100000, guid: 54a69064d1fcd1a478be00a5b800fa35, type: 2}
-    noiseScale: 0.17
-    noiseStrength: 4.2
-    detailNoiseScale: 1.31
+    noiseScale: 0.82
+    noiseStrength: 0.88
+    detailNoiseScale: 2
     anisotropy: 1
     ambientStrength: 1
-    phaseStrength: 1
+    phaseStrength: 106.82
     colorBoost: 1
     saturation: 1
-    densityMultiplier: 8.04
+    densityMultiplier: 14.84
     noiseSpeed: 0.62

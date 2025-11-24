@@ -2,8 +2,22 @@ Shader "Unlit/SmokeRaymarching"
 {
     Properties
     {
+        [Header(Noise Settings)]
+        _NoiseScale ("Noise Scale", Float) = 0.85
+        _NoiseStrength ("Noise Strength", Float) = 0.88
+        _DetailNoiseScale ("Detail Noise Scale", Float) = 5155.0
+        _NoiseSpeed ("Noise Speed", Float) = 0.62
+        
+        [Header(Lighting and Color)]
+        _Anisotropy ("Anisotropy", Range(-1, 1)) = 1.0
+        _AmbientStrength ("Ambient Strength", Float) = 1.0
+        _PhaseStrength ("Phase Strength", Float) = 1.0
+        _ColorBoost ("Color Boost", Float) = 1.0
+        _Saturation ("Saturation", Float) = 1.0
+        _DensityMultiplier ("Density Multiplier", Float) = 14.84
+        
         //string here could be the default value
-        _SmokeTex3D ("Smoke 3D Texture", 3D) = "" {}
+        _SmokeTex3D ("Smoke 3D Texture", 3D) = "" {} 
         _NoiseTex3D ("Noise 3D Texture", 3D) = "" {}
         _ColorLUT3d ("ColorLUT 3D Texture", 3D) = "" {}
     }
@@ -55,28 +69,18 @@ Shader "Unlit/SmokeRaymarching"
             SAMPLER(sampler_SmokeMask);
             
             // Properties
-            float _SmokeParams[10];
-            #define IDX_NOISE_SCALE           0
-            #define IDX_NOISE_STRENGTH        1
-            #define IDX_DETAIL_NOISE_SCALE    2
-            #define IDX_ANISOTROPY            3
-            #define IDX_AMBIENT_STRENGTH      4
-            #define IDX_PHASE_STRENGTH        5
-            #define IDX_COLOR_BOOST           6
-            #define IDX_SATURATION            7
-            #define IDX_DENSITY_MULTIPLIER    8
-            #define IDX_NOISE_SPEED           9
-
-            #define _NoiseScale          _SmokeParams[IDX_NOISE_SCALE]
-            #define _NoiseStrength       _SmokeParams[IDX_NOISE_STRENGTH]
-            #define _DetailNoiseScale    _SmokeParams[IDX_DETAIL_NOISE_SCALE]
-            #define _Anisotropy          _SmokeParams[IDX_ANISOTROPY]
-            #define _AmbientStrength     _SmokeParams[IDX_AMBIENT_STRENGTH]
-            #define _PhaseStrength       _SmokeParams[IDX_PHASE_STRENGTH]
-            #define _ColorBoost          _SmokeParams[IDX_COLOR_BOOST]
-            #define _Saturation          _SmokeParams[IDX_SATURATION]
-            #define _DensityMultiplier   _SmokeParams[IDX_DENSITY_MULTIPLIER]
-            #define _NoiseSpeed          _SmokeParams[IDX_NOISE_SPEED]
+            CBUFFER_START(UnityPerMaterial)
+                float _NoiseScale;
+                float _NoiseStrength;
+                float _DetailNoiseScale;
+                float _NoiseSpeed;
+                float _Anisotropy;
+                float _AmbientStrength;
+                float _PhaseStrength;
+                float _ColorBoost;
+                float _Saturation;
+                float _DensityMultiplier;
+            CBUFFER_END
             
             float _VolumeSize = 640.0;
             static const float _VoxelResolution = 32.0;

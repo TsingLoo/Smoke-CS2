@@ -59,13 +59,13 @@ float3 HSVtoRGB(float3 hsv)
     else                    return float3(hsv.z, p, q);
 }
 
-float SampleLayeredNoise(Texture3D noiseTex3D, SamplerState noiseSampler, float noiseScale, float detailNoiseScale, float3 worldPos, float time)
+float SampleLayeredNoise(Texture3D noiseTex3D, SamplerState noiseSampler, float noiseScale, float detailNoiseScale, float3 worldPos, float time, float noiseSpeed)
 {
     // Base noise with animation
     float3 noiseCoord = worldPos * noiseScale * 0.07;
                 
     // Animate noise (CS2 uses time-based rotation and offset)
-    float timeOffset = time * 0.05;
+    float timeOffset = time * noiseSpeed;
     float s = sin(timeOffset);
     float c = cos(timeOffset);
     float2x2 rot = float2x2(c, -s, s, c);

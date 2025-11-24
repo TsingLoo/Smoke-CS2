@@ -23,6 +23,14 @@ Material:
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
+    - _ColorLUT3d:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NoiseTex3D:
+        m_Texture: {fileID: 11700000, guid: 9164e42e3f008054f86d0675851f2829, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _SmokeTex3D:
         m_Texture: {fileID: 11700000, guid: 8750967b4e5127f41b6d923260e20917, type: 2}
         m_Scale: {x: 1, y: 1}

@@ -18,6 +18,17 @@ public class SmokeGrenadeRendererFeature : ScriptableRendererFeature
         [Header("Raymarching")]
         public RenderPassEvent smokeRaymarchingPassEvent = RenderPassEvent.AfterRenderingOpaques;
         public Material smokeRaymarchingPassMaterial;
+
+        public float noiseScale = 1.0f; 
+        public float noiseStrength = 1.0f;
+        public float detailNoiseScale = 1.0f;
+        public float anisotropy = 1.0f;
+        public float ambientStrength = 1.0f;
+        public float phaseStrength = 1.0f;
+        public float colorBoost = 1.0f;
+        public float saturation = 1.0f;
+        public float densityMultiplier = 1.0f;
+        public float noiseSpeed = 0.5f;
     }
     
     public Settings settings = new Settings();

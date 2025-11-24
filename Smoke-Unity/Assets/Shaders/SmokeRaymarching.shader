@@ -4,6 +4,8 @@ Shader "Unlit/SmokeRaymarching"
     {
         //string here could be the default value
         _SmokeTex3D ("Smoke 3D Texture", 3D) = "" {}
+        _NoiseTex3D ("Noise 3D Texture", 3D) = "" {}
+        _ColorLUT3d ("ColorLUT 3D Texture", 3D) = "" {}
     }
     SubShader
     {
@@ -51,17 +53,30 @@ Shader "Unlit/SmokeRaymarching"
             
             TEXTURE2D(_SmokeMask);
             SAMPLER(sampler_SmokeMask);
-
+            
             // Properties
-            float _NoiseScale;
-            float _NoiseStrength;
-            float _DetailNoiseScale;
-            float _Anisotropy;
-            float _AmbientStrength;
-            float _PhaseStrength;
-            float _ColorBoost;
-            float _Saturation;
-            float _DensityMultiplier;
+            float _SmokeParams[10];
+            #define IDX_NOISE_SCALE           0
+            #define IDX_NOISE_STRENGTH        1
+            #define IDX_DETAIL_NOISE_SCALE    2
+            #define IDX_ANISOTROPY            3
+            #define IDX_AMBIENT_STRENGTH      4
+            #define IDX_PHASE_STRENGTH        5
+            #define IDX_COLOR_BOOST           6
+            #define IDX_SATURATION            7
+            #define IDX_DENSITY_MULTIPLIER    8
+            #define IDX_NOISE_SPEED           9
+
+            #define _NoiseScale          _SmokeParams[IDX_NOISE_SCALE]
+            #define _NoiseStrength       _SmokeParams[IDX_NOISE_STRENGTH]
+            #define _DetailNoiseScale    _SmokeParams[IDX_DETAIL_NOISE_SCALE]
+            #define _Anisotropy          _SmokeParams[IDX_ANISOTROPY]
+            #define _AmbientStrength     _SmokeParams[IDX_AMBIENT_STRENGTH]
+            #define _PhaseStrength       _SmokeParams[IDX_PHASE_STRENGTH]
+            #define _ColorBoost          _SmokeParams[IDX_COLOR_BOOST]
+            #define _Saturation          _SmokeParams[IDX_SATURATION]
+            #define _DensityMultiplier   _SmokeParams[IDX_DENSITY_MULTIPLIER]
+            #define _NoiseSpeed          _SmokeParams[IDX_NOISE_SPEED]
             
             float _VolumeSize = 640.0;
             static const float _VoxelResolution = 32.0;
@@ -137,7 +152,6 @@ Shader "Unlit/SmokeRaymarching"
                 //return float4(rawDepth,rawDepth,rawDepth, 1);
 
                 //figure out which smokes this ray is hitting
-
                 
 
                 [loop]
@@ -261,7 +275,7 @@ Shader "Unlit/SmokeRaymarching"
                             float adjustedDensity = clamp((rawDensity - 0.01) * 1.0101, 0.0, 1.0);
                             float scaledDensity = adjustedDensity * smoke.intensity* _DensityMultiplier;
 
-                            float noiseValue = SampleLayeredNoise(_NoiseTex3D, sampler_NoiseTex3D, _NoiseScale, _DetailNoiseScale, currentWorldPos, _Time);
+                            float noiseValue = SampleLayeredNoise(_NoiseTex3D, sampler_NoiseTex3D, _NoiseScale, _DetailNoiseScale, currentWorldPos, _Time, _NoiseSpeed);
                             float noiseMod = 1.0 + (noiseValue - 0.5) * _NoiseStrength;
                             scaledDensity *= noiseMod;
 

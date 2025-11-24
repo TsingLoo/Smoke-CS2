@@ -935,13 +935,13 @@ MonoBehaviour:
   targetCamera: {fileID: 95007558}
   smokeVolumes:
   - position: {x: 0, y: 3.86, z: 0}
-    size: {x: 5, y: 5, z: 5}
+    size: {x: 7, y: 7, z: 7}
     volumeIndex: 0
     tint: {r: 0.48584908, g: 0.37662637, b: 0.0022917464, a: 0}
     intensity: 0.55
     active: 1
   - position: {x: 7.22, y: 2.8233628, z: 0}
-    size: {x: 5, y: 5, z: 5}
+    size: {x: 7, y: 7, z: 7}
     volumeIndex: 0
     tint: {r: 0, g: 0.16763459, b: 0.5707547, a: 1}
     intensity: 1

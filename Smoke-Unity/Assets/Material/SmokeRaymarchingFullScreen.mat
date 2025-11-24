@@ -42,14 +42,14 @@ Material:
     m_Ints: []
     m_Floats:
     - _AmbientStrength: 1
-    - _Anisotropy: 0.92
+    - _Anisotropy: 0
     - _ColorBoost: 1
-    - _DensityMultiplier: 7.85
-    - _DetailNoiseScale: 5155
-    - _NoiseScale: 0.85
-    - _NoiseSpeed: 0.62
-    - _NoiseStrength: 0.88
-    - _PhaseStrength: 495.39
+    - _DensityMultiplier: 16.25
+    - _DetailNoiseScale: 0
+    - _NoiseScale: 1.55
+    - _NoiseSpeed: 2
+    - _NoiseStrength: 9.41
+    - _PhaseStrength: 23.65
     - _Saturation: 1
     m_Colors: []
   m_BuildTextureStacks: []

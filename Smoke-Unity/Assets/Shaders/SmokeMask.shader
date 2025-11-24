@@ -4,6 +4,7 @@ Shader "Unlit/SmokeMask"
     {
         //string here could be the default value
         _SmokeTex3D ("Smoke 3D Texture", 3D) = "" {}
+        _MaxDDASteps ("Max DDA Steps", Integer) = 32
     }
     SubShader
     {
@@ -41,11 +42,13 @@ Shader "Unlit/SmokeMask"
             Texture3D _SmokeTex3D;
             SamplerState sampler_SmokeTex3D;
 
+            uint _MaxDDASteps;
+            
             float _VolumeSize = 640.0;
             static const float _VoxelResolution = 32.0;
             static const float _AtlasSliceWidth = 34.0;
             static const float _AtlasTextureWidth = 542.0;
-            static const uint _MaxDDASteps = 32;
+
             
             float4x4 _InvVP;
             float3 _CameraPosCS;

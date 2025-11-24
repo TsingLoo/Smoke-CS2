@@ -251,7 +251,7 @@ Shader "Unlit/SmokeRaymarching"
 
                         int smokeIdx = activeSmokes[j].index;
                         SmokeVolume smoke = _SmokeVolumes[smokeIdx];
-                        smoke.tint = float3(1.0f, 1.0f ,1.0f);
+                        //smoke.tint = float3(1.0f, 1.0f ,1.0f);
                         float4 smokeData = SampleSmokeDensity(
                             _SmokeTex3D,
                             sampler_SmokeTex3D,
@@ -328,12 +328,12 @@ Shader "Unlit/SmokeRaymarching"
                     currentT += _RaymarchingStepSize;
                 }
 
-                return float4(opticalDepth,0,0,1);
+                //return float4(opticalDepth,0,0,1);
 
                 if (accumulatedColor.a < 0.00001)
                     discard;
                 
-                return float4(opticalDepth,0,0,1);
+                //return float4(opticalDepth,0,0,1);
 
                 #ifdef _FOG
                     float fogFactor = ComputeFogFactor(currentT);

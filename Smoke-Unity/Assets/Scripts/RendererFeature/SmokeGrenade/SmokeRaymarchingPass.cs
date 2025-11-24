@@ -16,6 +16,7 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
     private RTHandle rt4_DepthRange;
     
     private RTHandle[] mrtArray = new RTHandle[5];
+    private RenderTargetIdentifier[] mrtIDs = new RenderTargetIdentifier[5];
     
     private const int IDX_NOISE_SCALE = 0;
     private const int IDX_NOISE_STRENGTH = 1;
@@ -84,6 +85,12 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
         mrtArray[2] = rt2_HigherMoments;
         mrtArray[3] = rt3_SmokeColor;
         mrtArray[4] = rt4_DepthRange;
+        
+        mrtIDs[0] = rt0_OpticalDepth;
+        mrtIDs[1] = rt1_Moments;
+        mrtIDs[2] = rt2_HigherMoments;
+        mrtIDs[3] = rt3_SmokeColor;
+        mrtIDs[4] = rt4_DepthRange;
     }
 
     public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -100,7 +107,7 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
             
             CoreUtils.SetRenderTarget(
                 cmd,
-                mrtArray,
+                mrtIDs,
                 rt0_OpticalDepth,
                 ClearFlag.Color,
                 Color.clear

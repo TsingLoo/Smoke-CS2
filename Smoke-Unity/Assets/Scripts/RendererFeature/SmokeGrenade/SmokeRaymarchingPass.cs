@@ -125,7 +125,7 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
             
 #if true
             RTHandle cameraTarget = renderingData.cameraData.renderer.cameraColorTargetHandle;
-            Blitter.BlitCameraTexture(cmd, rt0_OpticalDepth, cameraTarget);
+            Blitter.BlitCameraTexture(cmd, rt3_SmokeColor, cameraTarget);
 #endif
         }
         

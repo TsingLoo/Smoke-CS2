@@ -113,8 +113,14 @@ Shader "Unlit/SmokeRaymarching"
                 return output;
             }
 
-            float4 frag (v2f input) : SV_Target
+            RaymarchOutput  frag (v2f input) : SV_Target
             {
+                RaymarchOutput output;
+                output.OpticalDepth = 0.0;
+                output.Moments = float2(0, 0);
+                output.HigherMoments = float4(0, 0, 0, 0);
+                output.SmokeColor = float4(0, 0, 0, 0);
+                output.DepthRange = float2(0, 0);
                 
                 float rawDepth = SampleSceneDepth(input.uv);
                 uint maskRaw = (SAMPLE_TEXTURE2D(_SmokeMask, sampler_SmokeMask, input.uv).r);
@@ -339,8 +345,10 @@ Shader "Unlit/SmokeRaymarching"
                     float fogFactor = ComputeFogFactor(currentT);
                     accumulatedColor.rgb = MixFog(accumulatedColor.rgb, fogFactor);
                 #endif
-                
-                return accumulatedColor;
+                output.OpticalDepth = opticalDepth;
+                output.SmokeColor = accumulatedColor;
+
+                return output;
             }
             ENDHLSL
         }

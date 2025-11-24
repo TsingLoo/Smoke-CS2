@@ -74,18 +74,18 @@ MonoBehaviour:
   m_Active: 1
   settings:
     downSample: 4
-    VoxelSize: 11
+    VoxelSize: 8
     smokeMaskRenderPassEvent: 200
     smokeMaskMaterial: {fileID: 2100000, guid: a05040bc5b5a2ae4b8723965c0d8a4b0, type: 2}
     smokeRaymarchingPassEvent: 400
     smokeRaymarchingPassMaterial: {fileID: 2100000, guid: 54a69064d1fcd1a478be00a5b800fa35, type: 2}
-    noiseScale: 1.89
-    noiseStrength: 1.36
-    detailNoiseScale: 2.37
+    noiseScale: 0.17
+    noiseStrength: 4.2
+    detailNoiseScale: 1.31
     anisotropy: 1
     ambientStrength: 1
     phaseStrength: 1
     colorBoost: 1
     saturation: 1
-    densityMultiplier: 6.43
-    noiseSpeed: 0.5
+    densityMultiplier: 8.04
+    noiseSpeed: 0.62

@@ -7,6 +7,7 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
 {
     private int m_DownSample = 2;
     
+    private Material compositeMat;
     private Material smokeRaymarchingPassMaterial;
 
     private RTHandle rt0_OpticalDepth;
@@ -25,6 +26,8 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
     
     public SmokeRaymarchingPass(SmokeGrenadeRendererFeature.Settings settings)
     {
+        this.compositeMat = settings.compositeMat;
+        
         this.smokeRaymarchingPassMaterial = settings.smokeRaymarchingPassMaterial;
         this.renderPassEvent = settings.smokeRaymarchingPassEvent;
         
@@ -100,10 +103,15 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
             cmd.SetGlobalTexture("_SmokeColor", rt3_SmokeColor);
             cmd.SetGlobalTexture("_DepthRange", rt4_DepthRange);
             
-#if true
+#if false
             RTHandle cameraTarget = renderingData.cameraData.renderer.cameraColorTargetHandle;
             Blitter.BlitCameraTexture(cmd, rt3_SmokeColor, cameraTarget);
 #endif
+            
+#if true
+            RTHandle cameraTarget = renderingData.cameraData.renderer.cameraColorTargetHandle;
+            Blitter.BlitCameraTexture(cmd, rt3_SmokeColor, cameraTarget, this.compositeMat, 0);
+#endif 
         }
         
         context.ExecuteCommandBuffer(cmd);

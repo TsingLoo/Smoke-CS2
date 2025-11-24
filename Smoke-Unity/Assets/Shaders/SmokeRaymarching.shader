@@ -17,6 +17,7 @@ Shader "Unlit/SmokeRaymarching"
         _DensityMultiplier ("Density Multiplier", Float) = 14.84
         
         //string here could be the default value
+        _noiseTex2D ("Noise 2D Texture", 2D) = "" {}
         _SmokeTex3D ("Smoke 3D Texture", 3D) = "" {} 
         _NoiseTex3D ("Noise 3D Texture", 3D) = "" {}
         _ColorLUT3d ("ColorLUT 3D Texture", 3D) = "" {}

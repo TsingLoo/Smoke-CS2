@@ -2,6 +2,11 @@ Shader "Unlit/SmokeRaymarching"
 {
     Properties
     {
+        [Header(Raymarching)]
+        
+        _MaxSteps ("Max Step", Integer)= 200
+        _RaymarchingStepSize("Step Size", float) = 0
+     
         [Header(Noise Settings)]
         _DitherStrength("Dither Strength", Float) = 1.0
         _DitherDistance("Dither Distance", Float) = 150.0
@@ -80,6 +85,9 @@ Shader "Unlit/SmokeRaymarching"
                 float _ColorBoost;
                 float _Saturation;
                 float _DensityMultiplier;
+
+                float _MaxSteps = 200;
+                float _RaymarchingStepSize = 0.2;
                 float _DitherDistance;
             CBUFFER_END
             

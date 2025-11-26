@@ -39,17 +39,19 @@ Material:
         m_Texture: {fileID: 2800000, guid: 65ba9f8127776b84f90acac078eec34c, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
-    m_Ints: []
+    m_Ints:
+    - _MaxSteps: 1000
     m_Floats:
     - _AmbientStrength: 1
-    - _Anisotropy: 0
+    - _Anisotropy: 0.38
     - _ColorBoost: 1
-    - _DensityMultiplier: 16.25
-    - _DetailNoiseScale: 0
+    - _DensityMultiplier: 10.36
+    - _DetailNoiseScale: 0.5
     - _NoiseScale: 1.55
-    - _NoiseSpeed: 2
+    - _NoiseSpeed: 0.3
     - _NoiseStrength: 9.41
     - _PhaseStrength: 23.65
+    - _RaymarchingStepSize: 0.1
     - _Saturation: 1
     m_Colors: []
   m_BuildTextureStacks: []

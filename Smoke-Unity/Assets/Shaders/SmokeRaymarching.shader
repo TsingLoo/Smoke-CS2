@@ -90,15 +90,22 @@ Shader "Unlit/SmokeRaymarching"
                 float _RaymarchingStepSize = 0.2;
                 float _DitherDistance;
             CBUFFER_END
+
+            CBUFFER_START(CameraParams)
+                float4x4 _InvVP;
+                float3 _CameraPosition;    
+                float _NearPlane;          
+                float3 _CameraForward;      
+                float _FarPlane;           
+                float3 _CameraRight;
+                float _CameraNearPlane;
+                float _CameraFarPlane;
+            CBUFFER_END
             
             float _VolumeSize = 640.0;
             static const float _VoxelResolution = 32.0;
             static const float _AtlasSliceWidth = 34.0;
             static const float _AtlasTextureWidth = 542.0;
-            static const uint _MaxDDASteps = 32;
-
-            static const float _MaxSteps = 200;
-            static const float _RaymarchingStepSize = 0.2;
 
             static const int2 _DitherMask = int2(255, 255);
             
@@ -111,9 +118,6 @@ Shader "Unlit/SmokeRaymarching"
                 float2 DepthRange    : SV_Target4; // RGFloat
                 float alpha          : SV_Target5;
             };
-            
-            float4x4 _InvVP;
-            float3 _CameraPosCS;
             
             v2f vert (appdata input)
             {
@@ -152,6 +156,7 @@ Shader "Unlit/SmokeRaymarching"
                     1.0
                 );
 
+                //the array of the smokes this ray hits
                 ActiveSmoke activeSmokes[16];
                 int activeSmokeCount = 0;
                 
@@ -172,11 +177,11 @@ Shader "Unlit/SmokeRaymarching"
                 //make dither time dependent
                 float dither = frac(blueNoise + (_Time * 0.618034));
                 
-                float3 cameraPos = _CameraPosCS;
+                //float3 cameraPos = _CameraPosCS;
                 //the direction of this ray
-                float3 rayDir = normalize(worldPosition - cameraPos);
+                float3 rayDir = normalize(worldPosition - _CameraPosition);
                 //distance between the ray origin to the scene object
-                float maxDistBeforeHitTheScene = length(worldPosition - cameraPos);
+                float maxDistBeforeHitTheScene = length(worldPosition - _CameraPosition);
                 
                 //return float4(maskRaw,0 ,maskRaw,1);
                 // if (rawDepth <= 0.0001 || rawDepth >= 0.9999)
@@ -205,7 +210,7 @@ Shader "Unlit/SmokeRaymarching"
                     if (!AABBIntersect(
                         smoke.aabbMin,
                         smoke.aabbMax,
-                        cameraPos,
+                        _CameraPosition,
                         rayDir,
                         tMin,
                         tMax
@@ -214,11 +219,15 @@ Shader "Unlit/SmokeRaymarching"
                         continue;
                     }
 
-                    float rayStart = max(0.0, tMin);
-                    if (rayStart >= maxDistBeforeHitTheScene)
+
+                    //ray starts at tMin, but if the origin is inside the smoke, it starts at camera
+                    float tRayStart = max(0.0, tMin);
+
+                    if (tRayStart >= maxDistBeforeHitTheScene)
                         continue;
-                    
-                    activeSmokes[activeSmokeCount].tMin = rayStart;
+
+                    //push the current smoke to the array
+                    activeSmokes[activeSmokeCount].tMin = tRayStart;
                     activeSmokes[activeSmokeCount].tMax = min(tMax, maxDistBeforeHitTheScene);
                     activeSmokes[activeSmokeCount].index = i;
                     activeSmokeCount++;
@@ -227,23 +236,21 @@ Shader "Unlit/SmokeRaymarching"
                         break;
                 }
 
+                //if this ray hits nothing
                 if (activeSmokeCount == 0)
                     discard;
-
-                //return float4(activeSmokeCount/16.0, 0, 0, 1);
-
-                //Raymarching
-
+                
                 //figure out the range of the ray inside valid AABBs
                 float globalStartT = 999999.0;
                 float globalEndT = 0.0;
-
+                
                 for (int k = 0; k < activeSmokeCount; k++)
                 {
                     globalStartT = min(globalStartT, activeSmokes[k].tMin);
                     globalEndT = max(globalEndT, activeSmokes[k].tMax);
                 }
 
+                //sample the dither to offset the actual start of the raymarching
                 float ditherOffset = (_RaymarchingStepSize * dither * _DitherStrength) * 
                      lerp(0.1, 0.8, saturate((globalStartT + _DitherDistance) * 0.05));
                 globalStartT += _RaymarchingStepSize + ditherOffset;
@@ -255,13 +262,16 @@ Shader "Unlit/SmokeRaymarching"
                 int numSteps = (int)clamp(ceil(rayLength / _RaymarchingStepSize) + 10.0, 1.0, float(_MaxSteps));
                 
                 float4 accumulatedColor = float4(0, 0, 0, 0);  // SmokeColor
-                float opticalDepth = 0.0;  // OpticalDepth
+                float opticalDepth = 0.0;                      // OpticalDepth
                 float luminance = 0.0;   
 
+                float3 cameraUp = cross(_CameraForward, _CameraRight);
+                
                 //init ray using the first hit smoke in the array
-                float3 rayStart = cameraPos + rayDir * globalStartT;
-                //float3 rayEnd = cameraPos + rayDir * min(activeSmokes[0].tMax, maxDistBeforeHitTheScene);
-
+                float3 rayStart = _CameraPosition + rayDir * globalStartT;
+                //float3 rayEnd = 
+                float tFinal = globalStartT + rayLength;
+                
                 float3 currentWorldPos = rayStart;
                 float currentT = globalStartT;
 

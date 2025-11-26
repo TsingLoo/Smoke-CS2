@@ -109,8 +109,37 @@ float3 SampleColorLUT(Texture3D colorLUT3D, SamplerState colorLUT3DSampler, floa
                 
     return color * colorBoost;
 }
-            
 
+///
+/// @brief Ray–AABB intersection test using the slab method.
+///
+/// @param aabbMin  The minimum corner of the AABB (x_min, y_min, z_min).
+/// @param aabbMax  The maximum corner of the AABB (x_max, y_max, z_max).
+///
+/// @param rayOrigin  Origin point of the ray.
+/// @param rayDir     Direction of the ray (does not need to be normalized).
+///
+/// @param tMin  Output: the parametric distance at which the ray first enters the AABB.
+///              Interpretation:
+///                - tMin >= 0  &&  tMax >= 0 : ray origin is outside the box, 
+///                                            and the ray hits the front face at tMin.
+///                - tMin < 0   &&  tMax >= 0 : ray origin is inside the box; 
+///                                            the effective entry is t = 0.
+///              tMin can be negative if the origin starts inside the AABB.
+///
+/// @param tMax  Output: the parametric distance at which the ray exits the AABB.
+///              Interpretation:
+///                - tMax >= 0 : intersection occurs in front of the ray origin.
+///                - tMax < 0  : the entire intersection interval lies behind the origin 
+///                              → no valid hit.
+///
+/// @return true if the ray intersects the AABB in the forward direction (t >= 0),
+///         false otherwise.
+///
+/// @note Valid intersection conditions:
+///       - AABB is hit if: tMin <= tMax AND tMax >= 0
+///       - Effective intersection interval is: [max(tMin, 0), tMax]
+///
 bool AABBIntersect(
     float3 aabbMin,
     float3 aabbMax,
@@ -120,26 +149,18 @@ bool AABBIntersect(
     out float tMax
 )
 {
-    // compute the invDirection
-    float3 invDir = 1.0 / (rayDir + 0.0001);
-    
-    // compute the intersection point of the six faces
+    float3 invDir = 1.0 / rayDir;
+
     float3 t0 = (aabbMin - rayOrigin) * invDir;
     float3 t1 = (aabbMax - rayOrigin) * invDir;
-    
-    // find the most close and far one
+
     float3 tNear = min(t0, t1);
-    float3 tFar = max(t0, t1);
-    
-    // calculate in-out distance
+    float3 tFar  = max(t0, t1);
+
     tMin = max(max(tNear.x, tNear.y), tNear.z);
-    tMax = min(min(tFar.x, tFar.y), tFar.z);
-    
-    // check if intersect
-    if (tMin > tMax) return false;
-    if (tMax < 0.0) return false;
-    
-    return true;
+    tMax = min(min(tFar.x,  tFar.y),  tFar.z);
+
+    return tMax >= max(tMin, 0.0);
 }
 
 float3 CalculateAtlasUVW(
@@ -162,7 +183,7 @@ float4 SampleSmokeAtUVW(
     Texture3D smokeTex,
     SamplerState smokeSampler,
     float3 uvw,
-    int volumeIndex,
+    int volumeIndex, 
     float voxelResolution,
     float atlasSliceWidth,
     float atlasTextureWidthInv

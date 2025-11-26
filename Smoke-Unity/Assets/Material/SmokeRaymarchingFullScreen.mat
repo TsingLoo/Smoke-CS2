@@ -23,8 +23,20 @@ Material:
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
+    - _BlueNoiseTex2D:
+        m_Texture: {fileID: 2800000, guid: 65ba9f8127776b84f90acac078eec34c, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BlueTex2D:
+        m_Texture: {fileID: 2800000, guid: 65ba9f8127776b84f90acac078eec34c, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _ColorLUT3d:
         m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _HighFreqNoise:
+        m_Texture: {fileID: 11700000, guid: 9164e42e3f008054f86d0675851f2829, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _NoiseTex3D:
@@ -40,18 +52,20 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints:
-    - _MaxSteps: 1000
+    - _MaxSteps: 200
     m_Floats:
     - _AmbientStrength: 1
-    - _Anisotropy: 0.38
+    - _Anisotropy: 0
     - _ColorBoost: 1
-    - _DensityMultiplier: 10.36
-    - _DetailNoiseScale: 0.5
-    - _NoiseScale: 1.55
-    - _NoiseSpeed: 0.3
-    - _NoiseStrength: 9.41
+    - _DensityMultiplier: 4.27
+    - _DetailNoiseScale: 0.6
+    - _DitherDistance: 1
+    - _DitherStrength: 1
+    - _NoiseScale: -1.28
+    - _NoiseSpeed: 2
+    - _NoiseStrength: 14.39
     - _PhaseStrength: 23.65
-    - _RaymarchingStepSize: 0.1
+    - _RaymarchingStepSize: 0.05
     - _Saturation: 1
     m_Colors: []
   m_BuildTextureStacks: []

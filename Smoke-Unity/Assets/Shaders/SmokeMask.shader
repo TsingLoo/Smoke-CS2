@@ -51,7 +51,7 @@ Shader "Unlit/SmokeMask"
 
             
             float4x4 _InvVP;
-            float3 _CameraPosCS;
+            float3 _CameraPosition;
             
             v2f vert (appdata input)
             {
@@ -93,7 +93,7 @@ Shader "Unlit/SmokeMask"
                 float4 worldPos = mul(_InvVP, ndc);
                 float3 worldPosition = worldPos.xyz / worldPos.w;
 
-                float3 cameraPos = _CameraPosCS;
+                float3 cameraPos = _CameraPosition;
                 float3 rayDir = normalize(worldPosition - cameraPos);
                 float maxDist = length(worldPosition - cameraPos);
 

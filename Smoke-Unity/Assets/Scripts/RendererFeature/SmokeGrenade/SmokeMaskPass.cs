@@ -53,7 +53,11 @@ class SmokeMaskPass : ScriptableRenderPass
             Matrix4x4 invVPMatrix = vpMatrix.inverse;
             
             cmd.SetGlobalMatrix("_InvVP", invVPMatrix);
-            cmd.SetGlobalVector("_CameraPosCS", cam.transform.position);
+            cmd.SetGlobalVector("_CameraPosition", cam.transform.position);
+            cmd.SetGlobalVector("_CameraForward", cam.transform.forward);
+            cmd.SetGlobalVector("_CameraRight", cam.transform.right);
+            cmd.SetGlobalFloat("_CameraNearPlane", cam.nearClipPlane);
+            cmd.SetGlobalFloat("_CameraFarPlane", cam.farClipPlane);
             
             
             CoreUtils.SetRenderTarget(cmd, m_SmokeMaskHandle, ClearFlag.Color, Color.clear);

@@ -54,6 +54,11 @@ class SmokeMaskPass : ScriptableRenderPass
             
             cmd.SetGlobalMatrix("_InvVP", invVPMatrix);
             cmd.SetGlobalVector("_CameraPosition", cam.transform.position);
+            cmd.SetGlobalVector("_DepthReconstructParams", new Vector4(
+                0, 0,
+                cam.farClipPlane - cam.nearClipPlane,
+                cam.farClipPlane
+            ));
             cmd.SetGlobalVector("_CameraForward", cam.transform.forward);
             cmd.SetGlobalVector("_CameraRight", cam.transform.right);
             cmd.SetGlobalFloat("_CameraNearPlane", cam.nearClipPlane);

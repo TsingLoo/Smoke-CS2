@@ -3,6 +3,32 @@
 
 #include  "./Defines.hlsl"
 
+float2 Rotate2D(float2 v, float angle)
+{
+    float s = sin(angle);
+    float c = cos(angle);
+    return float2(v.x * c - v.y * s, v.x * s + v.y * c);
+}
+
+float3 ApplyCloudDistortion(float3 uvw, float time)
+{
+    float3 distorted = (uvw - 0.5) * 7.0;
+    
+    float angle = (time * 0.04) + 
+        (((0.2 + (sin(distorted.z * 5.0) + 0.5) * 0.15) * sin(time * 0.5 + 0.5) * sin(time * 0.187 + 0.5)) * 0.2);
+    
+    distorted.xy = Rotate2D(distorted.xy, angle);
+    
+    float waveTime = time + sin(time * 0.5) * 0.02;
+    distorted.x += sin(waveTime + distorted.z * 2.7) * 0.05;
+    distorted.z += cos(waveTime + distorted.x * 2.7) * 0.05;
+    
+    distorted.z += (sin(distorted.x * 3.0 + time * 0.35) + 
+                    sin(distorted.y * 2.84 + time * 0.235)) * 0.05;
+    
+    return distorted;
+}
+
 float PhaseHG(float cosTheta, float g)
 {
     float g2 = g * g;
@@ -215,14 +241,15 @@ float4 SampleSmokeDensity(
     float volumeSize,
     float voxelResolution,
     float atlasTextureWidth,
-    float atlasSliceWidth
+    float atlasSliceWidth,
+    out float3 uvw
 )
 {
     float halfVolumeSize = volumeSize * 0.5;
     
     float3 localPos = (worldPos - volumeCenter) + halfVolumeSize;
     
-    float3 uvw = localPos / volumeSize;
+    uvw = saturate(localPos / volumeSize); 
     
     return SampleSmokeAtUVW(
         smokeTex, 

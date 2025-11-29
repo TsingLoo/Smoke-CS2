@@ -10,23 +10,36 @@ float2 Rotate2D(float2 v, float angle)
     return float2(v.x * c - v.y * s, v.x * s + v.y * c);
 }
 
+float hash(float n) { return frac(sin(n) * 43758.5453123); }
+
+// 1D noise
+float noise1(float x)
+{
+    float i = floor(x);
+    float f = frac(x);
+    float u = f * f * (3.0 - 2.0 * f);
+    return lerp(hash(i), hash(i + 1.0), u);
+}
+
 float3 ApplyCloudDistortion(float3 uvw, float time)
 {
-    float3 distorted = (uvw - 0.5) * 7.0;
-    
-    float angle = (time * 0.04) + 
-        (((0.2 + (sin(distorted.z * 5.0) + 0.5) * 0.15) * sin(time * 0.5 + 0.5) * sin(time * 0.187 + 0.5)) * 0.2);
-    
-    distorted.xy = Rotate2D(distorted.xy, angle);
-    
-    float waveTime = time + sin(time * 0.5) * 0.02;
-    distorted.x += sin(waveTime + distorted.z * 2.7) * 0.05;
-    distorted.z += cos(waveTime + distorted.x * 2.7) * 0.05;
-    
-    distorted.z += (sin(distorted.x * 3.0 + time * 0.35) + 
-                    sin(distorted.y * 2.84 + time * 0.235)) * 0.05;
-    
-    return distorted;
+    float3 p = (uvw - 0.5) * 7.0;
+
+    // --- 主方向：始终往下（不反向） ---
+    float downSpeed = 0.2;
+    p.y -= time * downSpeed;
+
+    // --- 非周期扰动：使用 noise 而不是 sin ---
+    float n1 = noise1(p.x * 1.3 + time * 0.4);
+    float n2 = noise1(p.z * 1.7 + time * 0.5);
+    float n3 = noise1(p.y * 1.1 + time * 0.3);
+
+    // 小扰动（永远不会“反向”主运动，只会左右小幅变化）
+    p.x += (n1 - 0.5) * 0.25;
+    p.z += (n2 - 0.5) * 0.25;
+    p.y += (n3 - 0.5) * 0.08;   // y 的扰动保持很小，避免反向
+
+    return p;
 }
 
 float PhaseHG(float cosTheta, float g)

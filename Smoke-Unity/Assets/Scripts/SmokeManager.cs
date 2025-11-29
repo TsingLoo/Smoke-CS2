@@ -77,7 +77,7 @@ public class SmokeVolumeManager : MonoBehaviour
         public Color tint = Color.white;
         
         [Tooltip("烟雾强度")]
-        [Range(0f, 2f)]
+        [Range(0f, 20f)]
         public float intensity = 1f;
         
         [Header("State")]

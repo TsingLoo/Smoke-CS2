@@ -297,11 +297,15 @@ Shader "Unlit/SmokeRaymarching"
 
                     if (accumulatedColor.a > 0.99) break;
 
-                    currentWorldPos = rayStart + rayDir*_RaymarchingStepSize*currentStep; 
+                    currentWorldPos = rayStart + rayDir * _RaymarchingStepSize * currentStep; 
                     
                     float3 dominantPos = currentWorldPos;
                     int dominantIndex = -1;
+
+                    //how much behind the volume is blocked in the transmision to the camera 
                     float totalExtinction = 0.0;
+
+                    //how much light is scattered to this ray of observation
                     float3 totalScattering = float3(0, 0, 0);
 
                     //for each step, check all the smokes hit by this ray
@@ -353,9 +357,9 @@ Shader "Unlit/SmokeRaymarching"
                         //float blendFactor = smoke.tint.y;
 
                         //when slice is 15, only the .x and .y have values
-                        float blendFactor = 1.0f;
-                        float2 blended = lerp(smokeData.xz, smokeData.yw, _BlendFactor);
-                        float baseDensity = blended.x;
+                        //float2 blended = lerp(smokeData.xz, smokeData.yw, _BlendFactor);
+                        //float baseDensity = blended.x;
+                        float baseDensity = smokeData.x;
 
                         //if there is density at this world posision of the current smoke
                         if (baseDensity > 0.01)
@@ -364,18 +368,22 @@ Shader "Unlit/SmokeRaymarching"
                             //distort the sampling position of high frequency noise
                             float distortedVec = ApplyCloudDistortion(baseUVW, animTime);
 
+
+
                             float3 detailUVW = distortedVec * _DetailNoiseUVWScale;
 
                             //sample the high frequency noise
-                            float4 detailNoise = _HighFreqNoise.SampleLevel(sampler_HighFreqNoise, detailUVW, 0);
+                            float4 sampledDetailNoise = _HighFreqNoise.SampleLevel(sampler_HighFreqNoise, detailUVW, 0);
 
                             //calculate the noise data
-                            float detailValue = (detailNoise.r + detailNoise.g * 0.5 + detailNoise.b * 0.25) / 1.75;
-                            
+                            float detailValue = (sampledDetailNoise.r * 0.33 + sampledDetailNoise.g * 0.33 + sampledDetailNoise.b * 0.33) / 1.75;
+
+                            //decrease the volume density by noise
                             float adjustedDensity = baseDensity - (detailValue * _DetailNoiseStrength) * (1.0 - baseDensity);
+                            
                             adjustedDensity = saturate(adjustedDensity * _DensityMultiplier * smoke.intensity);
 
-                            //the final density of this sample
+                            //the final density of this ray
                             float finalDensity = clamp((adjustedDensity - 0.01) * 1.0101, 0.0, 1.0);
 
                             // float noiseValue = SampleLayeredNoise(_HighFreqNoise, sampler_HighFreqNoise, _NoiseScale, _DetailNoiseScale, currentWorldPos, _Time, _NoiseSpeed);
@@ -392,18 +400,19 @@ Shader "Unlit/SmokeRaymarching"
                             totalScattering += smoke.tint.rgb * finalDensity;
                         }
                     }
-                    
+
+                    //if this ray hit at least a smoke
                     if (totalExtinction > 0.01)
                     {
-                        if (dominantIndex >= 0)
-                        {
-                            SmokeVolume smoke = _SmokeVolumes[dominantIndex];
-                            float3 localPos = (dominantPos - smoke.position) / _VolumeSize;
-                            float3 normalizedPos = clamp(localPos * 0.5 + 0.5, 0.0, 1.0);
-                            
-                            float3 lutColor = SampleColorLUT(_ColorLUT3D, sampler_ColorLUT3D, _AtlasTextureWidth, _AtlasSliceWidth, _Saturation, _ColorBoost, normalizedPos, totalExtinction, smoke.volumeIndex);
-                            totalScattering = lerp(totalScattering, lutColor * totalExtinction, 0.5);
-                        }
+                        // if (dominantIndex >= 0)
+                        // {
+                        //     SmokeVolume smoke = _SmokeVolumes[dominantIndex];
+                        //     float3 localPos = (dominantPos - smoke.position) / _VolumeSize;
+                        //     float3 normalizedPos = clamp(localPos * 0.5 + 0.5, 0.0, 1.0);
+                        //     
+                        //     float3 lutColor = SampleColorLUT(_ColorLUT3D, sampler_ColorLUT3D, _AtlasTextureWidth, _AtlasSliceWidth, _Saturation, _ColorBoost, normalizedPos, totalExtinction, smoke.volumeIndex);
+                        //     totalScattering = lerp(totalScattering, lutColor * totalExtinction, 0.5);
+                        // }
                         
                         float stepOpticalDepth = totalExtinction * _RaymarchingStepSize;
                         float transmittance = exp(-stepOpticalDepth);
@@ -427,7 +436,7 @@ Shader "Unlit/SmokeRaymarching"
                         }
                     }
 
-                    currentWorldPos += rayDir * _RaymarchingStepSize;
+                    //currentWorldPos += rayDir * _RaymarchingStepSize;
                     currentT += _RaymarchingStepSize;
                 }
 

@@ -52,20 +52,24 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints:
-    - _MaxSteps: 200
+    - _MaxSteps: 2000
     m_Floats:
-    - _AmbientStrength: 1
+    - _AmbientStrength: 0.26
     - _Anisotropy: 0
+    - _BlendFactor: 0
     - _ColorBoost: 1
-    - _DensityMultiplier: 4.27
-    - _DetailNoiseScale: 0.6
+    - _DensityMultiplier: 98.88
+    - _DetailNoiseScale: 0.03
+    - _DetailNoiseSpeed: 23.13
+    - _DetailNoiseStrength: 0.53
+    - _DetailNoiseUVWScale: 0.61
     - _DitherDistance: 1
-    - _DitherStrength: 1
-    - _NoiseScale: -1.28
-    - _NoiseSpeed: 2
-    - _NoiseStrength: 14.39
-    - _PhaseStrength: 23.65
-    - _RaymarchingStepSize: 0.05
+    - _DitherStrength: 5.41
+    - _NoiseScale: 0
+    - _NoiseSpeed: 20
+    - _NoiseStrength: 0
+    - _PhaseStrength: 101
+    - _RaymarchingStepSize: 0.2
     - _Saturation: 1
     m_Colors: []
   m_BuildTextureStacks: []

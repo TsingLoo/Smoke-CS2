@@ -281,6 +281,33 @@ float4 SampleSmokeDensity(
     );
 }
 
+float GetSmokeDensity(
+    float3 samplePos, 
+    SmokeVolume smoke, 
+    Texture3D smokeTex, SamplerState samplerSmoke,
+    Texture3D noiseTex, SamplerState samplerNoise,
+    float volumeSize, float time,
+    float detailNoiseSpeed, float detailNoiseUVWScale, float detailNoiseStrength, float densityMultiplier)
+{
+    float3 baseUVW;
+    float4 smokeData = SampleSmokeDensity(
+        smokeTex, samplerSmoke,
+        samplePos, smoke.position, smoke.volumeIndex,
+        volumeSize, VOXEL_RESOLUTION, ATLAS_DEPTH, VOXEL_RESOLUTION, baseUVW
+    );
+    
+    float baseDensity = smokeData.x;
+    
+    if (baseDensity <= 0.01) return 0.0;
+    
+    float animTime = time * detailNoiseSpeed;
+    float3 detailUVW = baseUVW * detailNoiseUVWScale;
+    float4 sampledDetailNoise = noiseTex.SampleLevel(samplerNoise, detailUVW + animTime, 0);
+    float detailValue = (sampledDetailNoise.r * 0.33 + sampledDetailNoise.g * 0.33 + sampledDetailNoise.b * 0.33) / 1.75;
+
+    float adjustedDensity = baseDensity - (detailValue * detailNoiseStrength) * (1.0 - baseDensity);
+    return saturate(adjustedDensity * densityMultiplier * smoke.intensity);
+}
 
 bool TraverseVoxels(
     Texture3D smokeTex,

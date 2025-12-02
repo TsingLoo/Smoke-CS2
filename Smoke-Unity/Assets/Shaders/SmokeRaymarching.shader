@@ -17,6 +17,7 @@ Shader "Unlit/SmokeRaymarching"
         _DetailNoiseUVWScale ("Detail Noise Scale", Float) = 5155.0
         _DetailNoiseSpeed ("Detail Noise Speed", Float) = 0.62
         
+        
 //        [Range(0.0, 1.0)]
 //        _BlendFactor("Smoke Data Blend Factor", Float) = 0.1
         
@@ -27,6 +28,10 @@ Shader "Unlit/SmokeRaymarching"
         _ColorBoost ("Color Boost", Float) = 1.0
         _Saturation ("Saturation", Float) = 1.0
         _DensityMultiplier ("Density Multiplier", Float) = 14.84
+        
+        [Header(Shadow)]
+        _ShadowOffsetScale("The offset towards light source", Float) = 0.7
+        _ShadowHardness("The hardness of shadow", Float) = 0.3
         
         //string here could be the default value
         _BlueNoiseTex2D ("Blue Noise 2D Texture", 2D) = "" {}
@@ -89,6 +94,9 @@ Shader "Unlit/SmokeRaymarching"
                 float _ColorBoost;
                 float _Saturation;
                 float _DensityMultiplier;
+
+                float _ShadowOffsetScale;
+                float _ShadowHardness;
 
                 float _MaxSteps = 200;
                 float _RaymarchingStepSize = 0.2;
@@ -315,6 +323,10 @@ Shader "Unlit/SmokeRaymarching"
                     float3 totalScattering = float3(0, 0, 0);
 
                     //for each step, check all the smokes hit by this ray
+
+                    float3 shadowOffsetVec = lightDir * _RaymarchingStepSize * _ShadowOffsetScale;
+                    float stepShadowDensity = 0.0;
+                    
                     [loop]  
                     for (int j = 0; j < activeSmokeCount; j++)
                     {
@@ -341,93 +353,65 @@ Shader "Unlit/SmokeRaymarching"
                         SmokeVolume smoke = _SmokeVolumes[smokeIdx];
                         //smoke.tint = float3(1.0f, 1.0f ,1.0f);
 
-                        //UVW is the 3d sampling value
-                        float3 baseUVW;
-                        float4 smokeData = SampleSmokeDensity(
-                            _SmokeTex3D,
-                            sampler_SmokeTex3D,
-                            currentWorldPos,
-                            smoke.position,
-                            smoke.volumeIndex,
-                            _VolumeSize,
-                            VOXEL_RESOLUTION,
-                            ATLAS_DEPTH,
-                            VOXEL_RESOLUTION,
-                            baseUVW
+                        float finalDensity = GetSmokeDensity(
+                            currentWorldPos, smoke, 
+                            _SmokeTex3D, sampler_SmokeTex3D, 
+                            _HighFreqNoise, sampler_HighFreqNoise, 
+                            _VolumeSize, _Time.y, 
+                            _DetailNoiseSpeed, _DetailNoiseUVWScale, _DetailNoiseStrength, _DensityMultiplier
                         );
 
-                        //output.SmokeColor = float4(baseUVW.x, baseUVW.y, baseUVW.z,1.0f );
+                        finalDensity = clamp((finalDensity - 0.01) * 1.0101, 0.0, 1.0);
 
-                        //
-                        //float blendFactor = smoke.tint.y;
-
-                        //when slice is 15, only the .x and .y have values
-                        //float2 blended = lerp(smokeData.xz, smokeData.yw, _BlendFactor);
-                        //float baseDensity = blended.x;
-                        float baseDensity = smokeData.x;
-
-                        //if there is density at this world posision of the current smoke
-                        if (baseDensity > 0.01)
+                        if (finalDensity > 0.001)
                         {
-                            float animTime = _Time * _DetailNoiseSpeed;
-                            //distort the sampling position of high frequency noise
-                            //float distortedVec = ApplyCloudDistortion(baseUVW, animTime);
-
-                            float3 detailUVW = baseUVW * _DetailNoiseUVWScale;
-
-                            //sample the high frequency noise
-                            float4 sampledDetailNoise = _HighFreqNoise.SampleLevel(sampler_HighFreqNoise, detailUVW + animTime, 0);
-
-                            //calculate the noise data
-                            float detailValue = (sampledDetailNoise.r * 0.33 + sampledDetailNoise.g * 0.33 + sampledDetailNoise.b * 0.33) / 1.75;
-
-                            //decrease the volume density by noise
-                            float adjustedDensity = baseDensity - (detailValue * _DetailNoiseStrength) * (1.0 - baseDensity);
+                            //check the density closer to the light
+                            float lightSideDensity = GetSmokeDensity(
+                                currentWorldPos + shadowOffsetVec, smoke, 
+                                _SmokeTex3D, sampler_SmokeTex3D, 
+                                _HighFreqNoise, sampler_HighFreqNoise, 
+                                _VolumeSize, _Time.y, 
+                                _DetailNoiseSpeed, _DetailNoiseUVWScale, _DetailNoiseStrength, _DensityMultiplier
+                            );
                             
-                            adjustedDensity = saturate(adjustedDensity * _DensityMultiplier * smoke.intensity);
+                            lightSideDensity = clamp((lightSideDensity - 0.01) * 1.0101, 0.0, 1.0);
 
-                            //the final density of this ray
-                            float finalDensity = clamp((adjustedDensity - 0.01) * 1.0101, 0.0, 1.0);
-
-                            // float noiseValue = SampleLayeredNoise(_HighFreqNoise, sampler_HighFreqNoise, _NoiseScale, _DetailNoiseScale, currentWorldPos, _Time, _NoiseSpeed);
-                            // float noiseMod = 1.0 + (noiseValue - 0.5) * _NoiseStrength;
-                            // scaledDensity *= noiseMod;
-
-                            if (finalDensity > totalExtinction)
+                            // accumulate the current density
+                            totalExtinction += finalDensity;
+                            // accumulate the step shadow
+                            stepShadowDensity += lightSideDensity;
+                            
+                            if (finalDensity > totalExtinction - finalDensity)
                             {
                                 dominantIndex = smokeIdx;
                                 dominantPos = currentWorldPos;
                             }
-                            
-                            totalExtinction += finalDensity;
+
+                            // accumulate the scattering color
                             totalScattering += smoke.tint.rgb * finalDensity;
                         }
                     }
-                    
-                    // output.SmokeColor = float4(rawSmokeMask,0,0,1.0);    
-                    // return output;
-
-                    //if this ray hit at least a smoke
+                        
                     if (totalExtinction > 0.01)
                     {
-                        // if (dominantIndex >= 0)
-                        // {
-                        //     SmokeVolume smoke = _SmokeVolumes[dominantIndex];
-                        //     float3 localPos = (dominantPos - smoke.position) / _VolumeSize;
-                        //     float3 normalizedPos = clamp(localPos * 0.5 + 0.5, 0.0, 1.0);
-                        //     
-                        //     float3 lutColor = SampleColorLUT(_ColorLUT3D, sampler_ColorLUT3D, _AtlasTextureWidth, _AtlasSliceWidth, _Saturation, _ColorBoost, normalizedPos, totalExtinction, smoke.volumeIndex);
-                        //     totalScattering = lerp(totalScattering, lutColor * totalExtinction, 0.5);
-                        // }
-                        
+                        // Beer's law
                         float stepOpticalDepth = totalExtinction * _RaymarchingStepSize;
                         float transmittance = exp(-stepOpticalDepth);
+                        
+                        // if the step shadow is high, we are occluded
+                        float shadowTerm = exp(-stepShadowDensity * _ShadowHardness);
+                        
+                        // calculate the lighting
+                        float3 ambient = _AmbientStrength; 
+
+                        // scale the directional light by the shadowTerm
+                        float3 directionalLight = lightColor * (phase * _PhaseStrength) * shadowTerm;
+                        
+                        float3 finalLighting = ambient + directionalLight;
+                        
                         float3 inScattering = totalScattering * (1.0 - transmittance) / max(totalExtinction, 0.0001);
-
-                        float lighting = _AmbientStrength + (phase * _PhaseStrength);
-                        float3 litScattering = inScattering * lighting * lightColor;
-                        litScattering += inScattering * lightColor * (phase * 0.5 * (1.0 - _DetailNoiseStrength));
-
+                        float3 litScattering = inScattering * finalLighting;
+                        
                         float stepAlpha = 1.0 - transmittance;
                         accumulatedColor.rgb += litScattering * stepAlpha * (1.0 - accumulatedColor.a);
                         accumulatedColor.a += stepAlpha * (1.0 - accumulatedColor.a);
@@ -441,14 +425,10 @@ Shader "Unlit/SmokeRaymarching"
                             break;
                         }
                     }
-
-                    //currentWorldPos += rayDir * _RaymarchingStepSize;
+                    
                     currentT += _RaymarchingStepSize;
                 }
-
-                //return float4(opticalDepth,0,0,1);
-                
-                
+                    
                 if (accumulatedColor.a < 0.00001)
                     discard;
                 

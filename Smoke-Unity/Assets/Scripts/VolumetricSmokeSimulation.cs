@@ -52,6 +52,7 @@ public class VolumetricSmokeSimulation : MonoBehaviour
         public Vector3Int pos;
         public float priority;
         public float shapeCost;
+        public bool isWall;
 
         public int CompareTo(SmokeNode other)
         {
@@ -118,6 +119,9 @@ public class VolumetricSmokeSimulation : MonoBehaviour
             SmokeNode current = pQueue.Pop();
             filledVoxels.Add(current);
             
+            if (current.isWall)
+                continue;
+            
             if (current.shapeCost > maxShapeCostReached) 
                 maxShapeCostReached = current.shapeCost;
             
@@ -135,12 +139,19 @@ public class VolumetricSmokeSimulation : MonoBehaviour
                     visited[neighbor.x, neighbor.y, neighbor.z] = true;
                     continue;
                 }
+                
+                bool isTerminalNode = false;
 
-                //collision detection
-                if (CheckCollision(neighbor) || !CheckConnectivity(current.pos, neighbor))
+                if (CheckCollision(neighbor))
                 {
-                    visited[neighbor.x, neighbor.y, neighbor.z] = true;
-                    continue;
+                    isTerminalNode = true;
+                }
+                else 
+                {
+                    if (!CheckConnectivity(current.pos, neighbor))
+                    {
+                        isTerminalNode = true;
+                    }
                 }
                 
                 float neighborShapeCost = CalculateShapeCost(neighbor);
@@ -151,7 +162,8 @@ public class VolumetricSmokeSimulation : MonoBehaviour
                 pQueue.Push(new SmokeNode { 
                     pos = neighbor, 
                     priority = neighborTotalCost,
-                    shapeCost = neighborShapeCost
+                    shapeCost = neighborShapeCost,
+                    isWall = isTerminalNode
                 });
             }
 

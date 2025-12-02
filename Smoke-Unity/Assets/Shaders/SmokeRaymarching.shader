@@ -17,8 +17,8 @@ Shader "Unlit/SmokeRaymarching"
         _DetailNoiseUVWScale ("Detail Noise Scale", Float) = 5155.0
         _DetailNoiseSpeed ("Detail Noise Speed", Float) = 0.62
         
-        [Range(0.0, 1.0)]
-        _BlendFactor("Smoke Data Blend Factor", Float) = 0.1
+//        [Range(0.0, 1.0)]
+//        _BlendFactor("Smoke Data Blend Factor", Float) = 0.1
         
         [Header(Lighting and Color)]
         _Anisotropy ("Anisotropy", Range(-1, 1)) = 1.0
@@ -82,7 +82,7 @@ Shader "Unlit/SmokeRaymarching"
                 float _DetailNoiseStrength;
                 float _DetailNoiseUVWScale;
                 float _DetailNoiseSpeed;
-                float _BlendFactor;
+                //float _BlendFactor;
                 float _Anisotropy;
                 float _AmbientStrength;
                 float _PhaseStrength;
@@ -371,14 +371,12 @@ Shader "Unlit/SmokeRaymarching"
                         {
                             float animTime = _Time * _DetailNoiseSpeed;
                             //distort the sampling position of high frequency noise
-                            float distortedVec = ApplyCloudDistortion(baseUVW, animTime);
+                            //float distortedVec = ApplyCloudDistortion(baseUVW, animTime);
 
-
-
-                            float3 detailUVW = distortedVec * _DetailNoiseUVWScale;
+                            float3 detailUVW = baseUVW * _DetailNoiseUVWScale;
 
                             //sample the high frequency noise
-                            float4 sampledDetailNoise = _HighFreqNoise.SampleLevel(sampler_HighFreqNoise, detailUVW, 0);
+                            float4 sampledDetailNoise = _HighFreqNoise.SampleLevel(sampler_HighFreqNoise, detailUVW + animTime, 0);
 
                             //calculate the noise data
                             float detailValue = (sampledDetailNoise.r * 0.33 + sampledDetailNoise.g * 0.33 + sampledDetailNoise.b * 0.33) / 1.75;

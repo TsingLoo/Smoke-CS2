@@ -73,10 +73,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Active: 1
   settings:
-    downSample: 2
-    VoxelSize: 11
+    downSample: 1
     compositeMat: {fileID: 2100000, guid: f3cfc073c7f86314e99848cb9f55c8d4, type: 2}
-    smokeMaskRenderPassEvent: 1000
+    smokeMaskRenderPassEvent: 200
     smokeMaskMaterial: {fileID: 2100000, guid: a05040bc5b5a2ae4b8723965c0d8a4b0, type: 2}
     smokeRaymarchingPassEvent: 400
     smokeRaymarchingPassMaterial: {fileID: 2100000, guid: 54a69064d1fcd1a478be00a5b800fa35, type: 2}

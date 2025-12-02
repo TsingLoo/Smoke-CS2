@@ -18,7 +18,7 @@ public class SmokeVolumeManager : MonoBehaviour
 {
     public static SmokeVolumeManager Instance { get; private set; }
     
-    public const float GRID_WORLD_SIZE = 12.0f; 
+    public const float GRID_WORLD_SIZE = 14.0f; 
     
     public const int MAX_SMOKE_COUNT = 16;
     public const int VOXEL_RES = 32;

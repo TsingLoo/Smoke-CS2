@@ -60,9 +60,9 @@ Material:
     - _ColorBoost: 1
     - _DensityMultiplier: 98.88
     - _DetailNoiseScale: 0.03
-    - _DetailNoiseSpeed: 89.85
-    - _DetailNoiseStrength: -5.82
-    - _DetailNoiseUVWScale: -6.2
+    - _DetailNoiseSpeed: 0.5
+    - _DetailNoiseStrength: 1.6
+    - _DetailNoiseUVWScale: 3
     - _DitherDistance: 1
     - _DitherStrength: 5.41
     - _NoiseScale: 0

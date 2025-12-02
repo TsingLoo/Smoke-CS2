@@ -95,6 +95,16 @@ public class SmokeRaymarchingPass : ScriptableRenderPass
                 Color.clear
             );
             
+            if (SmokeHoleManager.HoleBuffer != null)
+            {
+                cmd.SetGlobalBuffer("_BulletHoleBuffer", SmokeHoleManager.HoleBuffer);
+                cmd.SetGlobalInt("_BulletHoleCount", SmokeHoleManager.ActiveCount);
+            }
+            else
+            {
+                cmd.SetGlobalInt("_BulletHoleCount", 0);
+            }
+            
             cmd.DrawProcedural(Matrix4x4.identity, smokeRaymarchingPassMaterial, 0, MeshTopology.Triangles, 3,1);
 
             cmd.SetGlobalTexture("_OpticalDepth", rt0_OpticalDepth);

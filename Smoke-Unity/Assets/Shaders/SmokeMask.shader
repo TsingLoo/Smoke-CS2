@@ -104,7 +104,6 @@ Shader "Unlit/SmokeMask"
                     if (smoke.volumeIndex < 0) continue;
 
                     float tMin, tMax;
-                    
                     if (AABBIntersect(
                         smoke.aabbMin,
                         smoke.aabbMax,
@@ -114,6 +113,7 @@ Shader "Unlit/SmokeMask"
                         tMax
                     ))
                     {
+                        //return 1;
                         float rayStart = max(0.0, tMin);
                         if (rayStart >= maxDist) 
                             continue;

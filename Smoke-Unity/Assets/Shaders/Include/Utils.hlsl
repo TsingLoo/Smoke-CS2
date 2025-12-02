@@ -3,6 +3,37 @@
 
 #include  "./Defines.hlsl"
 
+float Random(float3 p) 
+{
+    return frac(sin(dot(p, float3(12.9898, 78.233, 45.164))) * 43758.5453);
+}
+
+float Noise3D(float3 p) 
+{
+    float3 i = floor(p);
+    float3 f = frac(p);
+    f = f * f * (3.0 - 2.0 * f); // Hermite 插值，让边缘更圆滑
+    
+    return lerp(
+        lerp(lerp(Random(i + float3(0,0,0)), Random(i + float3(1,0,0)), f.x),
+             lerp(Random(i + float3(0,1,0)), Random(i + float3(1,1,0)), f.x), f.y),
+        lerp(lerp(Random(i + float3(0,0,1)), Random(i + float3(1,0,1)), f.x),
+             lerp(Random(i + float3(0,1,1)), Random(i + float3(1,1,1)), f.x), f.y), f.z);
+}
+
+float Fbm3D(float3 p) 
+{
+    float v = 0.0;
+    float a = 0.5;
+    float3 shift = float3(100.0, 100.0, 100.0);
+    for (int i = 0; i < 2; ++i) {
+        v += a * Noise3D(p);
+        p = p * 2.0 + shift;
+        a *= 0.5;
+    }
+    return v;
+}
+
 float2 Rotate2D(float2 v, float angle)
 {
     float s = sin(angle);
@@ -303,10 +334,68 @@ float GetSmokeDensity(
     float animTime = time * detailNoiseSpeed;
     float3 detailUVW = baseUVW * detailNoiseUVWScale;
     float4 sampledDetailNoise = noiseTex.SampleLevel(samplerNoise, detailUVW + animTime, 0);
-    float detailValue = (sampledDetailNoise.r * 0.33 + sampledDetailNoise.g * 0.33 + sampledDetailNoise.b * 0.33) / 1.75;
-
+    //float detailValue = (sampledDetailNoise.r * 0.33 + sampledDetailNoise.g * 0.33 + sampledDetailNoise.b * 0.33);
+    float detailValue = sampledDetailNoise.r * 0.8 + sampledDetailNoise.b * 0.2;
+    
     float adjustedDensity = baseDensity - (detailValue * detailNoiseStrength) * (1.0 - baseDensity);
     return saturate(adjustedDensity * densityMultiplier * smoke.intensity);
+}
+
+float GetSmokeDensityWithGradient(
+    float gradientOffset,
+    float3 worldPos, 
+    SmokeVolume smoke,
+    Texture3D smokeTex, 
+    SamplerState smokeSampler,
+    Texture3D noiseTex, 
+    SamplerState noiseSampler,
+    float volumeSize, 
+    float time,
+    float noiseSpeed, 
+    float noiseScale, 
+    float noiseStrength, 
+    float densityMult,
+    out float3 baseUVW,
+    out float3 densityGradient
+)
+{
+    float finalDensity = GetSmokeDensity(
+        worldPos, smoke, 
+        smokeTex, smokeSampler,
+        noiseTex, noiseSampler,
+        volumeSize, time,
+        noiseSpeed, noiseScale, noiseStrength, densityMult
+    );
+
+    float3 localPos = worldPos - smoke.position;
+    baseUVW = (localPos / volumeSize) * 0.5 + 0.5;
+
+    float3 uvwX = baseUVW + float3(gradientOffset, 0, 0);
+    float3 uvwY = baseUVW + float3(0, gradientOffset, 0);
+
+    float densityX = GetSmokeDensity(
+        smoke.position + (uvwX - 0.5) * volumeSize, smoke,
+        smokeTex, smokeSampler,
+        noiseTex, noiseSampler,
+        volumeSize, time,
+        noiseSpeed, noiseScale, noiseStrength, densityMult
+    );
+
+    float densityY = GetSmokeDensity(
+        smoke.position + (uvwY - 0.5) * volumeSize, smoke,
+        smokeTex, smokeSampler,
+        noiseTex, noiseSampler,
+        volumeSize, time,
+        noiseSpeed, noiseScale, noiseStrength, densityMult
+    );
+
+    densityGradient = normalize(float3(
+        finalDensity - densityX,
+        finalDensity - densityY,
+        0.8
+    ));
+
+    return finalDensity;
 }
 
 bool TraverseVoxels(
@@ -373,6 +462,131 @@ bool TraverseVoxels(
     }
     
     return false;
+}
+
+bool TraverseVoxelsWithNoise(
+    Texture3D smokeTex,
+    SamplerState smokeSampler,
+    Texture3D noiseTex,
+    SamplerState noiseSampler,
+    float3 startPos,
+    float3 rayDir,
+    float maxDist,
+    float3 volumeCenter,
+    int volumeIndex,
+    float volumeSize,
+    float voxelResolution,
+    float atlasTextureWidth,
+    float atlasSliceWidth,
+    uint maxDDASteps,
+    float time,
+    float noiseSpeed,
+    float noiseScale,
+    float noiseStrength,
+    float densityThreshold
+)
+{
+    float halfVolumeSize = volumeSize * 0.5;
+    float voxelSize = volumeSize / voxelResolution;
+    float worldToVoxel = 1.0 / voxelSize;
+    float voxelToNormalized = 1.0 / voxelResolution;
+    float maxVoxelIndex = voxelResolution - 1.0;
+    float atlasWidthInv = 1.0 / atlasTextureWidth;
+    
+    float3 localPos = (startPos - volumeCenter) + halfVolumeSize;
+    float3 voxelPos = localPos * worldToVoxel;
+    voxelPos = clamp(voxelPos, 0.0, maxVoxelIndex);
+    
+    int3 currentVoxel = int3(floor(voxelPos));
+    int3 voxelStep = int3(sign(rayDir));
+    float3 rayStepSize = abs(length(rayDir) / (rayDir + 1e-5));
+    float3 stepDir = float3(voxelStep);
+    float3 tDelta = ((stepDir * (float3(currentVoxel) - voxelPos)) + (stepDir * 0.5) + 0.5) * rayStepSize;
+    
+    [loop]
+    for (uint i = 0; i < maxDDASteps; i++)
+    {
+        float3 uvw = float3(currentVoxel) * voxelToNormalized;
+        
+        float4 smokeData = SampleSmokeAtUVW(
+            smokeTex, 
+            smokeSampler, 
+            uvw, 
+            volumeIndex, 
+            voxelResolution, 
+            atlasSliceWidth, 
+            atlasWidthInv
+        );
+
+        float baseDensity = smokeData.r;
+        
+        if (baseDensity > 0.01)
+        {
+            float animTime = time * noiseSpeed;
+            float3 noiseUVW = uvw * noiseScale;
+            float4 noiseData = noiseTex.SampleLevel(noiseSampler, noiseUVW + animTime, 0);
+            float noiseValue = noiseData.r * 0.8 + noiseData.b * 0.2;
+            
+            float adjustedDensity = baseDensity - (noiseValue * noiseStrength) * (1.0 - baseDensity);
+            
+            if (adjustedDensity > densityThreshold)
+            {
+                return true;
+            }
+        }
+
+        float distTraveled = length((float3(currentVoxel) * voxelSize) - localPos);
+        if (distTraveled > maxDist) break;
+
+        float3 mask = step(tDelta.xyz, min(tDelta.yzx, tDelta.zxy));
+        tDelta += mask * rayStepSize;
+        currentVoxel += int3(mask) * voxelStep;
+    }
+    
+    return false;
+}
+
+float GetBulletPenetration(float3 currentPos, StructuredBuffer<BulletHoleData> bulletHoleBuffer, int bulletHoleCount)
+{
+    float densityMult = 1.0;
+
+    float noiseVal = Fbm3D(currentPos * HOLE_NOISE_SCALE + float3(0, _Time.y * 0.2, 0));
+    float disturbance = (noiseVal - 0.5) * 2.0;
+    
+    int count = min(bulletHoleCount, 32); 
+    
+    for(int i = 0; i < count; i++)
+    {
+        BulletHoleData hole = bulletHoleBuffer[i];
+        
+        float intensity = hole.startPosAndIntensity.w;
+        if (intensity < 0.001) continue;
+
+        float3 posA = hole.startPosAndIntensity.xyz;
+        float3 posB = hole.endPosAndRadius.xyz;
+        float radius = hole.endPosAndRadius.w;
+
+        float noisyRadius = radius * (1.0 + disturbance * HOLE_NOISE_STRENGTH);
+        noisyRadius = max(0.01, noisyRadius);
+        
+        float3 pa = currentPos - posA;
+        float3 ba = posB - posA;
+        
+        float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+        
+        float3 vecToLine = pa - ba * h;
+        float distSqr = dot(vecToLine, vecToLine);
+        
+        float radiusSqr = noisyRadius * noisyRadius;
+        
+        float holeFactor = 1.0 - smoothstep(0.0, radiusSqr, distSqr);
+        
+        float finalMask = 1.0 - (holeFactor * intensity);
+        
+        densityMult = min(densityMult, finalMask);
+    }
+    
+    return densityMult;
 }
 
 #endif

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 
 public class VolumetricSmokeSimulation : MonoBehaviour
@@ -10,6 +11,10 @@ public class VolumetricSmokeSimulation : MonoBehaviour
         new Vector3Int(0,0,1), new Vector3Int(0,0,-1),
         new Vector3Int(0,1,0), new Vector3Int(0,-1,0) 
     };
+
+    [SerializeField] private bool drawGizmo = false;
+    
+    [SerializeField] Color TintColor = Color.white;
     
     [Header("Target Shape")]
     public Vector3 preferredSize = new Vector3(0.7f, 1.0f, 0.6f); 
@@ -33,6 +38,8 @@ public class VolumetricSmokeSimulation : MonoBehaviour
         new Keyframe(0f, 1f),
         new Keyframe(1f, 0f)
     );
+    
+    [SerializeField] SmokeVolumeShadowProxy shadowProxy;
     
     // ===== Internal States =====
     private float voxelSize;
@@ -66,6 +73,8 @@ public class VolumetricSmokeSimulation : MonoBehaviour
         if (volumeManager == null) return;
         mySlotIndex = volumeManager.AllocateSmokeSlot();
         if (mySlotIndex == -1) return;
+        
+        shadowProxy.SetVolumeIndex(mySlotIndex);
 
         voxelSize = _gridWorldSize / _gridRes;
         densityBuffer = new byte[_gridRes * _gridRes * _gridRes];
@@ -81,7 +90,7 @@ public class VolumetricSmokeSimulation : MonoBehaviour
         if (mySlotIndex != -1)
         {
             volumeManager.UpdateSmokeMetadata(
-                mySlotIndex, transform.position, Vector3.one * _gridWorldSize, Color.white, 1.0f
+                mySlotIndex, transform.position, Vector3.one * _gridWorldSize, TintColor, 1.0f
             );
         }
     }
@@ -261,6 +270,8 @@ public class VolumetricSmokeSimulation : MonoBehaviour
     
     void OnDrawGizmosSelected()
     {
+        if (!drawGizmo) return;
+        
         Gizmos.color = Color.cyan;
         Gizmos.DrawWireCube(transform.position, preferredSize);
         Gizmos.color = Color.yellow;

@@ -1,5 +1,39 @@
 # Replicate the Smoke Grenade in Counter-Strike 2 - Final Project
 
+Using Unity 2022.3.62f3, URP 14.0.12
+
+## Showcase
+
+- Environment Collision
+
+  ![Environment Collision](./imgs/Unity_fZfXEI1LSo.gif)
+
+- Physics Interaction
+
+![Physics Interaction](./imgs/PotPlayerMini64_8lXx9hqM2K.gif)
+
+- Dynamic lighting & shadow
+
+  ![Dynamic Lighting](./imgs/PotPlayerMini64_I8TSCuyy1G.gif)
+
+- Pipeline Integration (Transparent & Post processing friendly)
+
+  ![Pipeline Integration](./imgs/Unity_HMVeBNmfhG.gif)
+
+## Feature
+
+- **High Performance & Compatibility:** No scene voxelization or pre-computation required
+- **Environment Collision:** Smoke automatically fills spaces and adapts to geometry without leaking
+- **Dynamic Lighting:** Reacts to directional scene lighting and casts realistic shadows
+- **Physics Interaction:** Supports projectile penetration and dispersal, similar to *Counter-Strike 2*
+- **Fully Customizable:** Extensive parameter controls exposed directly via the Inspector
+- **Pipeline Integration:** Optimized rendering order ensures compatibility with transparency and post-processing effects
+
+
+
+# Proposal
+
+
 ![](./imgs/chrome_DuYKX3Tll0.gif)
 
 ## Design Overview:
@@ -36,57 +70,3 @@ A ray will be marched from the camera through the scene. At each step, the shade
 ### Smoke Rendering Ⅱ & Interaction (Final Submission)
 
 Some 3D noise is sampled during the ray march. The noise is combined with the energy value from the flood fill. Density will fall off near the "edge" (where energy is low), using the noise to create detailed, wispy edges. A list of active holes (position, direction, timer) is maintained on the CPU and sent to the GPU. An easing function expands the hole and then slowly shrinks it. If the sample point is inside a hole's SDF, density is set to 0.
-
-## Topic Suggestions
-
-### Create a generator in Houdini
-
-### A CLASSIC 4K DEMO
-- In the spirit of the demo scene, create an animation that fits into a 4k executable that runs in real-time. Feel free to take inspiration from the many existing demos. Focus on efficiency and elegance in your implementation.
-- Example: 
-  - [cdak by Quite & orange](https://www.youtube.com/watch?v=RCh3Q08HMfs&list=PLA5E2FF8E143DA58C)
-
-### A RE-IMPLEMENTATION
-- Take an academic paper or other pre-existing project and implement it, or a portion of it.
-- Examples:
-  - [2D Wavefunction Collapse Pokémon Town](https://gurtd.github.io/566-final-project/)
-  - [3D Wavefunction Collapse Dungeon Generator](https://github.com/whaoran0718/3dDungeonGeneration)
-  - [Reaction Diffusion](https://github.com/charlesliwang/Reaction-Diffusion)
-  - [WebGL Erosion](https://github.com/LanLou123/Webgl-Erosion)
-  - [Particle Waterfall](https://github.com/chloele33/particle-waterfall)
-  - [Voxelized Bread](https://github.com/ChiantiYZY/566-final)
-
-### A FORGERY
-Taking inspiration from a particular natural phenomenon or distinctive set of visuals, implement a detailed, procedural recreation of that aesthetic. This includes modeling, texturing and object placement within your scene. Does not need to be real-time. Focus on detail and visual accuracy in your implementation.
-- Examples:
-  - [The Shrines](https://github.com/byumjin/The-Shrines)
-  - [Watercolor Shader](https://github.com/gracelgilbert/watercolor-stylization)
-  - [Sunset Beach](https://github.com/HanmingZhang/homework-final)
-  - [Sky Whales](https://github.com/WanruZhao/CIS566FinalProject)
-  - [Snail](https://www.shadertoy.com/view/ld3Gz2)
-  - [Journey](https://www.shadertoy.com/view/ldlcRf)
-  - [Big Hero 6 Wormhole](https://2.bp.blogspot.com/-R-6AN2cWjwg/VTyIzIQSQfI/AAAAAAAABLA/GC0yzzz4wHw/s1600/big-hero-6-disneyscreencaps.com-10092.jpg)
-
-### A GAME LEVEL
-- Like generations of game makers before us, create a game which generates an navigable environment (eg. a roguelike dungeon, platforms) and some sort of goal or conflict (eg. enemy agents to avoid or items to collect). Aim to create an experience that will challenge players and vary noticeably in different playthroughs, whether that means procedural dungeon generation, careful resource management or an interesting AI model. Focus on designing a system that is capable of generating complex challenges and goals.
-- Examples:
-  - [Rhythm-based Mario Platformer](https://github.com/sgalban/platformer-gen-2D)
-  - [Pokémon Ice Puzzle Generator](https://github.com/jwang5675/Ice-Puzzle-Generator)
-  - [Abstract Exploratory Game](https://github.com/MauKMu/procedural-final-project)
-  - [Tiny Wings](https://github.com/irovira/TinyWings)
-  - Spore
-  - Dwarf Fortress
-  - Minecraft
-  - Rogue
-
-### AN ANIMATED ENVIRONMENT / MUSIC VISUALIZER
-- Create an environment full of interactive procedural animation. The goal of this project is to create an environment that feels responsive and alive. Whether or not animations are musically-driven, sound should be an important component. Focus on user interactions, motion design and experimental interfaces.
-- Examples:
-  - [The Darkside](https://github.com/morganherrmann/thedarkside)
-  - [Music Visualizer](https://yuruwang.github.io/MusicVisualizer/)
-  - [Abstract Mesh Animation](https://github.com/mgriley/cis566_finalproj)
-  - [Panoramical](https://www.youtube.com/watch?v=gBTTMNFXHTk)
-  - [Bound](https://www.youtube.com/watch?v=aE37l6RvF-c)
-
-### YOUR OWN PROPOSAL
-- You are of course welcome to propose your own topic . Regardless of what you choose, you and your team must research your topic and relevant techniques and come up with a detailed plan of execution. You will meet with some subset of the procedural staff before starting implementation for approval.

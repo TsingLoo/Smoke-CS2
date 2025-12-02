@@ -43,13 +43,10 @@ Shader "Unlit/SmokeMask"
             SamplerState sampler_SmokeTex3D;
 
             uint _MaxDDASteps;
-            
-            float _VolumeSize = 640.0;
-            static const float _VoxelResolution = 32.0;
-            static const float _AtlasSliceWidth = 34.0;
-            static const float _AtlasTextureWidth = 542.0;
 
-            
+            //Change this in SmokeGrenadeRendererFeature
+            float _VolumeSize;
+
             float4x4 _InvVP;
             float3 _CameraPosition;
             
@@ -134,9 +131,9 @@ Shader "Unlit/SmokeMask"
                             smoke.position,
                             smoke.volumeIndex,
                             _VolumeSize,
-                            _VoxelResolution,
-                            _AtlasTextureWidth,
-                            _AtlasSliceWidth,
+                            VOXEL_RESOLUTION,
+                            ATLAS_DEPTH,
+                            VOXEL_RESOLUTION,
                             _MaxDDASteps
                         ))
                         {

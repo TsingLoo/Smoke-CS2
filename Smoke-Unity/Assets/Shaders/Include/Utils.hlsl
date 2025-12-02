@@ -206,16 +206,22 @@ float3 CalculateAtlasUVW(
     float3 localUVW, 
     int volumeIndex, 
     float voxelResolution, 
-    float atlasSliceWidth, 
-    float atlasTextureWidthInv)
+    float atlasDepth, 
+    float atlasDepthInv)
 {
     // x,z,y as the data is dumped from CS2
-    float3 swizzledUVW = float3(localUVW.x, localUVW.z, localUVW.y); 
+    //float3 swizzledUVW = float3(localUVW.x, localUVW.y, localUVW.z);
+    float zOffset = float(volumeIndex) * voxelResolution;  // 0, 32, 64, ..., 480
+
+    return float3(
+    localUVW.x,
+    localUVW.y,
+    (localUVW.z * voxelResolution + zOffset) * atlasDepthInv);
     
     // calculate U
-    float atlasU = (atlasSliceWidth * float(volumeIndex) + (swizzledUVW.x * voxelResolution)) * atlasTextureWidthInv;
+    //float atlasU = (atlasSliceWidth * float(volumeIndex) + (swizzledUVW.x * voxelResolution)) * atlasTextureWidthInv;
     
-    return float3(atlasU, swizzledUVW.y, swizzledUVW.z);
+    //return float3(atlasU, swizzledUVW.y, swizzledUVW.z);
 }
 
 float4 SampleSmokeAtUVW(
@@ -323,8 +329,10 @@ bool TraverseVoxels(
             atlasSliceWidth, 
             atlasWidthInv
         );
+
+        float density = smokeData.r;
         
-        if (any(smokeData.xyzw > 0.0))
+        if (any(density > 0.0))
         {
             return true;
         }

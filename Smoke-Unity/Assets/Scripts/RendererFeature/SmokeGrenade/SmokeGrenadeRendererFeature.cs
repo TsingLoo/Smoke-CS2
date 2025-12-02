@@ -9,7 +9,7 @@ public class SmokeGrenadeRendererFeature : ScriptableRendererFeature
     {
         [Header("General")]
         [Range(1, 4)] public int downSample = 2;
-        [Range(1.0f, 640.0f)] public float VoxelSize = 4.0f;
+        //[Range(1.0f, 640.0f)] public float VoxelSize = 4.0f;
 
         [Header("Composite Material")] 
         public Material compositeMat;

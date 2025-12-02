@@ -30,7 +30,6 @@ Shader "Unlit/SmokeRaymarching"
         
         //string here could be the default value
         _BlueNoiseTex2D ("Blue Noise 2D Texture", 2D) = "" {}
-        _SmokeTex3D ("Smoke Voxel 3D Texture", 3D) = "" {} 
         _HighFreqNoise ("High Freq Noise 3D Texture", 3D) = "" {}
         _ColorLUT3d ("ColorLUT 3D Texture", 3D) = "" {}
     }
@@ -106,11 +105,9 @@ Shader "Unlit/SmokeRaymarching"
                 float _CameraNearPlane;
                 float _CameraFarPlane;
             CBUFFER_END
-            
-            float _VolumeSize = 640.0;
-            static const float _VoxelResolution = 32.0;
-            static const float _AtlasSliceWidth = 34.0;
-            static const float _AtlasTextureWidth = 542.0;
+
+            //change this in RendererFeature
+            float _VolumeSize;
 
             static const int2 _DitherMask = int2(255, 255);
             
@@ -149,10 +146,15 @@ Shader "Unlit/SmokeRaymarching"
                 
                 float rawDepth = SampleSceneDepth(input.uv);
                 uint rawSmokeMask = (SAMPLE_TEXTURE2D(_SmokeMask, sampler_SmokeMask, input.uv).r);
-                //return float4(maskRaw,maskRaw,maskRaw,1);
 
+                // output.SmokeColor = float4(rawSmokeMask,0,0,1.0);    
+                // return output;
+                
                 if (rawSmokeMask == 0)
                     discard;
+
+                // output.SmokeColor = float4(rawSmokeMask,0,0,1.0);    
+                // return output;
                 
                 float4 ndc = float4(
                     input.uv.x * 2.0 - 1.0,
@@ -164,8 +166,6 @@ Shader "Unlit/SmokeRaymarching"
                 //the array of the smokes this ray hits
                 ActiveSmoke activeSmokes[16];
                 int activeSmokeCount = 0;
-                
-                //return float4(maskRaw,maskRaw,maskRaw,1);
                 
                 float4 worldPos = mul(_InvVP, ndc);
                 //the worldPosition of the scene object hit by this ray
@@ -200,7 +200,7 @@ Shader "Unlit/SmokeRaymarching"
                 [loop]
                 for (int i = 0; i < _SmokeCount; i++)
                 {
-                    //return float4(maskRaw,0,maskRaw,1);
+                    
                     //check the mask to see if this ray hits the current smoke
                     if ((rawSmokeMask & (1u << i)) == 0)
                         continue;
@@ -244,6 +244,9 @@ Shader "Unlit/SmokeRaymarching"
                 //if this ray hits nothing
                 if (activeSmokeCount == 0)
                     discard;
+
+                //output.SmokeColor = float4(rawSmokeMask,0,0,1.0);    
+                //return output;
                 
                 //figure out the range of the ray inside valid AABBs
                 float globalStartT = 999999.0;
@@ -292,6 +295,9 @@ Shader "Unlit/SmokeRaymarching"
                 [loop]
                 for (float currentStep = 0; currentStep < numSteps; currentStep ++)
                 {
+                    // output.SmokeColor = float4(rawSmokeMask,0,0,1.0);    
+                    // return output;
+                    
                     if (currentT >= globalEndT || currentT >= maxDistBeforeHitTheScene)
                         break;
 
@@ -330,7 +336,6 @@ Shader "Unlit/SmokeRaymarching"
                         }
                         #endif
 
-
                         //get the smokeIdx of this current smoke
                         int smokeIdx = activeSmokes[j].index;
                         SmokeVolume smoke = _SmokeVolumes[smokeIdx];
@@ -345,9 +350,9 @@ Shader "Unlit/SmokeRaymarching"
                             smoke.position,
                             smoke.volumeIndex,
                             _VolumeSize,
-                            _VoxelResolution,
-                            _AtlasTextureWidth,
-                            _AtlasSliceWidth,
+                            VOXEL_RESOLUTION,
+                            ATLAS_DEPTH,
+                            VOXEL_RESOLUTION,
                             baseUVW
                         );
 
@@ -400,6 +405,9 @@ Shader "Unlit/SmokeRaymarching"
                             totalScattering += smoke.tint.rgb * finalDensity;
                         }
                     }
+                    
+                    // output.SmokeColor = float4(rawSmokeMask,0,0,1.0);    
+                    // return output;
 
                     //if this ray hit at least a smoke
                     if (totalExtinction > 0.01)
@@ -441,7 +449,8 @@ Shader "Unlit/SmokeRaymarching"
                 }
 
                 //return float4(opticalDepth,0,0,1);
-
+                
+                
                 if (accumulatedColor.a < 0.00001)
                     discard;
                 

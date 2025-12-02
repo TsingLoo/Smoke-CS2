@@ -14,10 +14,9 @@ public class VolumetricSmokeSimulation : MonoBehaviour
     [Header("Target Shape")]
     public Vector3 preferredSize = new Vector3(0.7f, 1.0f, 0.6f); 
     public float roundness = 4.0f;
-
+    
     [Header("Budget & Grid")]
     public int voxelBudget = 10000; 
-    public float gridWorldSize = 12.0f; 
 
     [Header("Physics")]
     public LayerMask obstacleMask;
@@ -36,14 +35,18 @@ public class VolumetricSmokeSimulation : MonoBehaviour
     );
     
     // ===== Internal States =====
-    private const int GRID_RES = 32;
     private float voxelSize;
     private int mySlotIndex = -1;
     private byte[] densityBuffer;
     private bool[,,] visited;
     private List<SmokeNode> filledVoxels = new List<SmokeNode>();
     private float startWorldY;
+    
+    [SerializeField] SmokeVolumeManager volumeManager;
 
+    private int _gridRes => SmokeVolumeManager.GRID_RES;
+    private float _gridWorldSize => SmokeVolumeManager.GRID_WORLD_SIZE;
+    
     struct SmokeNode : IComparable<SmokeNode>
     {
         public Vector3Int pos;
@@ -56,15 +59,16 @@ public class VolumetricSmokeSimulation : MonoBehaviour
         }
     }
 
+    
     void Start()
     {
-        if (SmokeVolumeManager.Instance == null) return;
-        mySlotIndex = SmokeVolumeManager.Instance.AllocateSmokeSlot();
+        if (volumeManager == null) return;
+        mySlotIndex = volumeManager.AllocateSmokeSlot();
         if (mySlotIndex == -1) return;
 
-        voxelSize = gridWorldSize / GRID_RES;
-        densityBuffer = new byte[GRID_RES * GRID_RES * GRID_RES];
-        visited = new bool[GRID_RES, GRID_RES, GRID_RES];
+        voxelSize = _gridWorldSize / _gridRes;
+        densityBuffer = new byte[_gridRes * _gridRes * _gridRes];
+        visited = new bool[_gridRes, _gridRes, _gridRes];
 
         startWorldY = transform.position.y;
 
@@ -75,23 +79,23 @@ public class VolumetricSmokeSimulation : MonoBehaviour
     {
         if (mySlotIndex != -1)
         {
-            SmokeVolumeManager.Instance.UpdateSmokeMetadata(
-                mySlotIndex, transform.position, Vector3.one * gridWorldSize, Color.white, 1.0f
+            volumeManager.UpdateSmokeMetadata(
+                mySlotIndex, transform.position, Vector3.one * _gridWorldSize, Color.white, 1.0f
             );
         }
     }
 
     void OnDisable()
     {
-        if (mySlotIndex != -1 && SmokeVolumeManager.Instance != null)
-            SmokeVolumeManager.Instance.ReleaseSmokeSlot(mySlotIndex);
+        if (mySlotIndex != -1 && volumeManager != null)
+            volumeManager.ReleaseSmokeSlot(mySlotIndex);
     }
     
     IEnumerator SimulatePriorityFill()
     {
         MinHeap<SmokeNode> pQueue = new MinHeap<SmokeNode>(2048);
 
-        int center = GRID_RES / 2;
+        int center = _gridRes / 2;
         Vector3Int startPos = new Vector3Int(center, center, center);
         
         float startShapeCost = CalculateShapeCost(startPos);
@@ -166,7 +170,7 @@ public class VolumetricSmokeSimulation : MonoBehaviour
     //the cost increase when given position is more far away from origin
     float CalculateShapeCost(Vector3Int gridPos)
     {
-        float halfRes = GRID_RES / 2f;
+        float halfRes = _gridRes / 2f;
         float ox = (gridPos.x - halfRes) * voxelSize + (voxelSize * 0.5f);
         float oy = (gridPos.y - halfRes) * voxelSize + (voxelSize * 0.5f);
         float oz = (gridPos.z - halfRes) * voxelSize + (voxelSize * 0.5f);
@@ -182,7 +186,7 @@ public class VolumetricSmokeSimulation : MonoBehaviour
 
     float CalculateTotalCost(Vector3Int gridPos, float shapeCost)
     {
-        float normalizedY = (gridPos.y - (GRID_RES / 2f)) / (GRID_RES / 2f); //from -1 to 1
+        float normalizedY = (gridPos.y - (_gridRes / 2f)) / (_gridRes / 2f); //from -1 to 1
         float gravityPenalty = normalizedY * gravityBias;
         
         return shapeCost + gravityPenalty;
@@ -206,7 +210,7 @@ public class VolumetricSmokeSimulation : MonoBehaviour
             float t = Mathf.Clamp01(node.shapeCost / range);
             float density = densityFalloff.Evaluate(t);
 
-            int idx = node.pos.x + (node.pos.y * GRID_RES) + (node.pos.z * GRID_RES * GRID_RES);
+            int idx = node.pos.x + (node.pos.y * _gridRes) + (node.pos.z * _gridRes * _gridRes);
             densityBuffer[idx] = (byte)(density * 255);
         }
 
@@ -216,11 +220,11 @@ public class VolumetricSmokeSimulation : MonoBehaviour
     
     
     bool IsIndexValid(Vector3Int p) => 
-        p.x >= 0 && p.x < GRID_RES && p.y >= 0 && p.y < GRID_RES && p.z >= 0 && p.z < GRID_RES;
+        p.x >= 0 && p.x < _gridRes && p.y >= 0 && p.y < _gridRes && p.z >= 0 && p.z < _gridRes;
 
     Vector3 GridToWorld(Vector3Int p)
     {
-        float halfRes = GRID_RES / 2f;
+        float halfRes = _gridRes / 2f;
         float ox = (p.x - halfRes) * voxelSize + (voxelSize * 0.5f);
         float oy = (p.y - halfRes) * voxelSize + (voxelSize * 0.5f);
         float oz = (p.z - halfRes) * voxelSize + (voxelSize * 0.5f);
@@ -248,20 +252,20 @@ public class VolumetricSmokeSimulation : MonoBehaviour
         Gizmos.color = Color.cyan;
         Gizmos.DrawWireCube(transform.position, preferredSize);
         Gizmos.color = Color.yellow;
-        Gizmos.DrawWireCube(transform.position, Vector3.one * gridWorldSize);
+        Gizmos.DrawWireCube(transform.position, Vector3.one * _gridWorldSize);
         
         // 绘制向上限制线
         Gizmos.color = Color.red;
         float limitY = (Application.isPlaying ? startWorldY : transform.position.y) + upwardLimit;
         Vector3 limitCenter = new Vector3(transform.position.x, limitY, transform.position.z);
-        Gizmos.DrawWireCube(limitCenter, new Vector3(gridWorldSize, 0.1f, gridWorldSize));
+        Gizmos.DrawWireCube(limitCenter, new Vector3(_gridWorldSize, 0.1f, _gridWorldSize));
 
         if (Application.isPlaying && densityBuffer != null)
         {
-            float halfRes = GRID_RES / 2f;
-            for (int x=0; x<GRID_RES; x++) for (int y=0; y<GRID_RES; y++) for (int z=0; z<GRID_RES; z++)
+            float halfRes = _gridRes / 2f;
+            for (int x=0; x<_gridRes; x++) for (int y=0; y<_gridRes; y++) for (int z=0; z<_gridRes; z++)
             {
-                int idx = x + y*GRID_RES + z*GRID_RES*GRID_RES;
+                int idx = x + y*_gridRes + z*_gridRes*_gridRes;
                 if (densityBuffer[idx] > 10)
                 {
                     Gizmos.color = new Color(0,1,0, densityBuffer[idx]/255f);

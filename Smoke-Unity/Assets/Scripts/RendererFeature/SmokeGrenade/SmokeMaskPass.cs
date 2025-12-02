@@ -17,7 +17,6 @@ class SmokeMaskPass : ScriptableRenderPass
         renderPassEvent = settings.smokeMaskRenderPassEvent;
         
         this.m_DownSample = settings.downSample;
-        this.voxelSize = settings.VoxelSize;
     }
 
     public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
@@ -41,8 +40,6 @@ class SmokeMaskPass : ScriptableRenderPass
         }
         
         CommandBuffer cmd = CommandBufferPool.Get(profilerTag);
-        
-        cmd.SetGlobalFloat("_VolumeSize", voxelSize);
         
         using (new ProfilingScope(cmd, new ProfilingSampler(profilerTag)))
         {

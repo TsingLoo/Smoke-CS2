@@ -8,6 +8,7 @@
 static const float VOXEL_RESOLUTION = 32.0;
 static const float MAX_SMOKE_COUNT = 16.0;
 static const float ATLAS_DEPTH = VOXEL_RESOLUTION * MAX_SMOKE_COUNT;
+static const float ATLAS_DEPTH_INV = 1.0f / ATLAS_DEPTH;
 
 struct BulletHoleData
 {

@@ -8,11 +8,7 @@ using UnityEditor;
 #endif
 
 /// <summary>
-/// CS2风格的动态烟雾管理器 (融合版)
-/// 负责：
-/// 1. 维护 3D 纹理图集 (Z-Stack Atlas)
-/// 2. 分配槽位给烟雾弹
-/// 3. 将位置和密度数据传给 GPU
+ 
 /// </summary>
 public class SmokeVolumeManager : MonoBehaviour
 {
@@ -84,7 +80,7 @@ public class SmokeVolumeManager : MonoBehaviour
         // 2. 初始化 3D 纹理图集 (Z轴堆叠: 32x32x512)
         smokeAtlas = new Texture3D(VOXEL_RES, VOXEL_RES, VOXEL_RES * MAX_SMOKE_COUNT, TextureFormat.R8, false);
         smokeAtlas.wrapMode = TextureWrapMode.Clamp;
-        smokeAtlas.filterMode = FilterMode.Bilinear;
+        smokeAtlas.filterMode = FilterMode.Trilinear;
         smokeAtlas.name = "DynamicSmokeAtlas";
 
         // 初始化全黑

@@ -58,6 +58,10 @@ Shader "Unlit/SmokeRaymarching"
             #pragma fragment frag
             #pragma target 4.5
 
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
+            
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -105,7 +109,7 @@ Shader "Unlit/SmokeRaymarching"
                 float _ContrastPower;
                 float _MaxSteps;
                 float _RaymarchingStepSize;
-                float _DitherDistance;
+                float _DitherTransitionDistance;
                 float _HeightLightingPower;
             CBUFFER_END
 
@@ -121,8 +125,8 @@ Shader "Unlit/SmokeRaymarching"
             CBUFFER_END
 
             float _VolumeSize;
-
-            static const int2 _DitherMask = int2(255, 255);
+            
+            float4 _BlueNoiseTex2D_TexelSize;
             
             struct FragmentOutput
             {
@@ -156,46 +160,49 @@ Shader "Unlit/SmokeRaymarching"
                 output.HigherMoments = float4(0, 0, 0, 0);
                 output.SmokeColor = float4(0, 0, 0, 0);
                 output.DepthRange = float2(0, 0);
-                
+
+                //sample the depth of the scene
                 float rawDepth = SampleSceneDepth(input.uv);
+                //sample the smokeMaks
                 uint rawSmokeMask = (SAMPLE_TEXTURE2D(_SmokeMask, sampler_SmokeMask, input.uv).r);
-                
+
+                //if no smoke is hit by this fragment,discard
                 if (rawSmokeMask == 0)
                     discard;
-                
+
+                //temp array to record which smokes are hit by this ray
+                ActiveSmoke activeSmokes[16];
+                int activeSmokeCount = 0;
+
+                //calculate the ndc position of the scene of this fragment
                 float4 ndc = float4(
                     input.uv.x * 2.0 - 1.0,
                     (1.0 - input.uv.y) * 2.0 - 1.0,
                     rawDepth,
                     1.0
                 );
-
-                ActiveSmoke activeSmokes[16];
-                int activeSmokeCount = 0;
                 
                 float4 worldPos = mul(_InvVP, ndc);
+                //calculate the worldPosition of the scene of this fragment in world space
                 float3 worldPosition = worldPos.xyz / worldPos.w;
 
-                int2 screenPos = int2(input.positionCS.xy);
-                int2 wrapped = screenPos.xy & _DitherMask;
-
-                float2 ditherUV = wrapped/ 256.0;
-                float blueNoise = SAMPLE_TEXTURE2D(_BlueNoiseTex2D, sampler_BlueNoiseTex2D, ditherUV).x;
-                float dither = frac(blueNoise + (_Time * 0.618034));
-                
+                //from camera to the worldPosition
                 float3 rayDir = normalize(worldPosition - _CameraPosition);
                 float maxDistBeforeHitTheScene = length(worldPosition - _CameraPosition);
 
+                //loop to know which smoke is hit by this fragment
                 [loop]
                 for (int i = 0; i < _SmokeCount; i++)
                 {
                     if ((rawSmokeMask & (1u << i)) == 0)
                         continue;
 
+                    //get the meta data of the smoke
                     SmokeVolume smoke = _SmokeVolumes[i];
                     if (smoke.volumeIndex < 0)
                         continue;
 
+                    //fetch the tMin and tMax info of this ray
                     float tMin, tMax;
                     if (!AABBIntersect(
                         smoke.aabbMin,
@@ -209,11 +216,14 @@ Shader "Unlit/SmokeRaymarching"
                         continue;
                     }
 
+                    //ensure tRayStart is always (before) the camera 
                     float tRayStart = max(0.0, tMin);
 
+                    //if the start of ray is behind the scene, discard
                     if (tRayStart >= maxDistBeforeHitTheScene)
                         continue;
 
+                    //record the tMin tMax info for this smoke
                     activeSmokes[activeSmokeCount].tMin = tRayStart;
                     activeSmokes[activeSmokeCount].tMax = min(tMax, maxDistBeforeHitTheScene);
                     activeSmokes[activeSmokeCount].index = i;
@@ -223,9 +233,11 @@ Shader "Unlit/SmokeRaymarching"
                         break;
                 }
 
+                //if there is no smoke hit by this ray, discard
                 if (activeSmokeCount == 0)
                     discard;
-                
+
+                //we should care about the global tRayStart and tRayEnd
                 float globalStartT = 999999.0;
                 float globalEndT = 0.0;
                 
@@ -235,24 +247,34 @@ Shader "Unlit/SmokeRaymarching"
                     globalEndT = max(globalEndT, activeSmokes[k].tMax);
                 }
 
+                //get the pixel coordinate of this fragment
+                int2 screenPos = int2(input.positionCS.xy);
+                //calculate the dither sampling coordinate
+                float2 ditherUV = screenPos * _BlueNoiseTex2D_TexelSize.xy;
+                //sample the blue noise
+                float blueNoise = SAMPLE_TEXTURE2D(_BlueNoiseTex2D, sampler_BlueNoiseTex2D, ditherUV).r;
+                //get the dither to offset ray start
+                float dither = frac(blueNoise + (_Time * 0.618034));
+
+                //dither the globalStartT by the distance, the closer the smaller 
+                float distanceFactor = saturate(max(0.0, globalStartT) / _DitherTransitionDistance);
                 float ditherOffset = (_RaymarchingStepSize * dither * _DitherStrength) * 
-                     lerp(0.1, 0.8, saturate((globalStartT + _DitherDistance) * 0.05));
+                                     lerp(0.1, 0.8, distanceFactor);
+
+                //offset the global start to avoid band effect
                 globalStartT += _RaymarchingStepSize + ditherOffset;
-                
+
                 float rayLength = globalEndT - globalStartT;
 
                 int numSteps = (int)clamp(ceil(rayLength / _RaymarchingStepSize) + 10.0, 1.0, float(_MaxSteps));
-                
+
+                //init this ray infomration 
                 float4 accumulatedColor = float4(0, 0, 0, 0);
                 float opticalDepth = 0.0;
-                float luminance = 0.0;   
-
-                float3 cameraUp = cross(_CameraForward, _CameraRight);
+                float luminance = 0.0;
                 
                 float3 rayStart = _CameraPosition + rayDir * globalStartT;
                 float3 rayEnd = _CameraPosition + rayDir * min(globalEndT, maxDistBeforeHitTheScene);
-                float tFinal = globalStartT + rayLength;
-                float3 firstHitPos = rayEnd;
                 
                 float3 currentWorldPos = rayStart;
                 float currentT = globalStartT;
@@ -261,9 +283,12 @@ Shader "Unlit/SmokeRaymarching"
                 float3 lightDir = mainLight.direction;
                 float3 lightColor = mainLight.color;
 
+                //light contribution towards camerae
                 float cosTheta = dot(-rayDir, lightDir);
+                //the posibilty the contribution will be added to the camera
                 float phase = PhaseHG(cosTheta, _Anisotropy);
 
+                //Raymarching
                 [loop]
                 for (float currentStep = 0; currentStep < numSteps; currentStep ++)
                 {
@@ -281,7 +306,8 @@ Shader "Unlit/SmokeRaymarching"
 
                     float totalExtinction = 0.0;
                     float3 totalScattering = float3(0, 0, 0);
-                    
+
+                    // for each step, we want take all the possible active smokes into account
                     [loop]  
                     for (int j = 0; j < activeSmokeCount; j++)
                     {
@@ -294,7 +320,7 @@ Shader "Unlit/SmokeRaymarching"
                         float3 baseUVW;
                         float3 densityGradient;
 
-                        float finalDensity = GetSmokeDensityWithGradient(_GradientOffset,
+                        float densityOfThisStep = GetSmokeDensityWithGradient(_GradientOffset,
                             currentWorldPos, smoke, 
                             _SmokeTex3D, sampler_SmokeTex3D, 
                             _HighFreqNoise, sampler_HighFreqNoise, 
@@ -304,15 +330,15 @@ Shader "Unlit/SmokeRaymarching"
                         );
 
                         float penetration = GetBulletPenetration(currentWorldPos, _BulletHoleBuffer, _BulletHoleCount);
-                        finalDensity *= penetration;
+                        densityOfThisStep *= penetration;
 
-                        finalDensity = clamp((finalDensity - 0.01) * 1.0101, 0.0, 1.0);
+                        densityOfThisStep = clamp((densityOfThisStep - 0.01) * 1.0101, 0.0, 1.0);
 
-                        if (finalDensity > 0.001)
+                        if (densityOfThisStep > 0.001)
                         {
-                            totalExtinction += finalDensity;
+                            totalExtinction += densityOfThisStep;
                             
-                            if (finalDensity > totalExtinction - finalDensity)
+                            if (densityOfThisStep > totalExtinction - densityOfThisStep)
                             {
                                 dominantIndex = smokeIdx;
                                 dominantPos = currentWorldPos;
@@ -320,24 +346,41 @@ Shader "Unlit/SmokeRaymarching"
                                 dominantVolumeCenter = smoke.position;
                             }
 
-                            totalScattering += smoke.tint.rgb * finalDensity;
+                            totalScattering += smoke.tint.rgb * densityOfThisStep;
                         }
                     }
-                        
+
+                    //if the density is large enough to block the sight
                     if (totalExtinction > 0.01)
                     {
-                        float3 normalizedLocalPos = (currentWorldPos - dominantVolumeCenter) / _VolumeSize;
-                        float heightFactor = saturate(dot(normalizedLocalPos, lightDir) + 0.5);
-                        heightFactor = pow(heightFactor, _HeightLightingPower);
+                        float4 shadowCoord = TransformWorldToShadowCoord(currentWorldPos);
+                        float shadowAttenuation = MainLightRealtimeShadow(shadowCoord);
                         
-                        float NdotL = dot(dominantGradient, lightDir);
+                        //localPosition in volume space
+                        float3 normalizedLocalPos = (currentWorldPos - dominantVolumeCenter) / _VolumeSize;
+
+                        //how much the current sampling position is closer the light source, range mapped to [0.0, 1.0]
+                        float heightFactor = saturate(dot(normalizedLocalPos, lightDir) + 0.5);
+
+                        //as the heightFactor is [0.0, 1.0], a large _HeightLightingPower will decrease the size of the highlight
+                        heightFactor = pow(heightFactor, _HeightLightingPower);
+
+                        //calculate the light contribution to this sampling point
+                        float3 macroNormal = normalize(currentWorldPos - dominantVolumeCenter);
+                        float3 microNormal = dominantGradient;
+                        float3 finalNormal = normalize(lerp(macroNormal, microNormal, 0.1));
+                        float NdotL = dot(finalNormal, lightDir);
                         
                         float diffuseTerm = pow(saturate(NdotL * 0.8 + 0.2), _DiffusePower);
                         float specularTerm = pow(saturate(NdotL * 1.4 - 0.5), _SpecularPower);
                         float directionalLighting = diffuseTerm + specularTerm;
-                        
 
-                        float baseLighting = 0.95 + saturate(directionalLighting * 0.5) + _LightingBoost * heightFactor;
+                        //output.SmokeColor = float4(shadowAttenuation,shadowAttenuation,shadowAttenuation,1.0);
+                        //output.SmokeColor = shadowCoord;
+                        //output.SmokeColor.a = 1.0;
+                        //return output;
+                        
+                        float baseLighting = saturate(directionalLighting * 0.5) + _LightingBoost * heightFactor;
                         
                         float enhancedExtinction = lerp(
                             totalExtinction - (1.0 - baseLighting),
@@ -353,7 +396,7 @@ Shader "Unlit/SmokeRaymarching"
                         float3 ambient = _AmbientStrength;
                         float3 directional = lightColor * (phase * _PhaseStrength) * directionalLighting;
                         directional = pow(directional, _ContrastPower);
-                        
+                        //directional *= shadowAttenuation;
                         float3 finalLighting = ambient + directional;
                         
                         float3 inScattering = totalScattering * (1.0 - transmittance) / max(totalExtinction, 0.0001);

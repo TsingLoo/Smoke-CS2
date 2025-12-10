@@ -73,6 +73,10 @@ float3 ApplyCloudDistortion(float3 uvw, float time)
     return p;
 }
 
+/// 
+/// @param cosTheta 
+/// @param g if g>0, forward scattering, light will more likely travel through the original direction
+/// @return 
 float PhaseHG(float cosTheta, float g)
 {
     float g2 = g * g;
@@ -269,7 +273,7 @@ float4 SampleSmokeAtUVW(
     if (any(uvw < 0.0) || any(uvw > 1.0))
         return 0.0;
 
-    //  Calculate UVW
+    //  Calculate UVW in altas space
     float3 sampleUVW = CalculateAtlasUVW(
         uvw, 
         volumeIndex, 
@@ -282,6 +286,18 @@ float4 SampleSmokeAtUVW(
     return smokeTex.SampleLevel(smokeSampler, sampleUVW, 0);
 }
 
+/// 
+/// @param smokeTex the smoke atlas texture
+/// @param smokeSampler sampler
+/// @param worldPos the input world space
+/// @param volumeCenter the center of the volume in the world space
+/// @param volumeIndex the index of the smoke metadata
+/// @param volumeSize the volumeSize in the unit of world space, the size of the entire AABB box in the world
+/// @param voxelResolution VOXEL_RESOLUTION
+/// @param atlasTextureWidth ATLAS_DEPTH
+/// @param atlasSliceWidth VOXEL_RESOLUTION
+/// @param uvw the 3D sample coordination in the volume space
+/// @return get the density of the given worldPos
 float4 SampleSmokeDensity(
     Texture3D smokeTex,
     SamplerState smokeSampler,
@@ -295,6 +311,7 @@ float4 SampleSmokeDensity(
     out float3 uvw
 )
 {
+    
     float halfVolumeSize = volumeSize * 0.5;
     
     float3 localPos = (worldPos - volumeCenter) + halfVolumeSize;
@@ -312,6 +329,8 @@ float4 SampleSmokeDensity(
     );
 }
 
+/// 
+/// @return the noised density at the given position in world space 
 float GetSmokeDensity(
     float3 samplePos, 
     SmokeVolume smoke, 
@@ -320,24 +339,27 @@ float GetSmokeDensity(
     float volumeSize, float time,
     float detailNoiseSpeed, float detailNoiseUVWScale, float detailNoiseStrength, float densityMultiplier)
 {
-    float3 baseUVW;
+    float3 rawUVW;
     float4 smokeData = SampleSmokeDensity(
         smokeTex, samplerSmoke,
         samplePos, smoke.position, smoke.volumeIndex,
-        volumeSize, VOXEL_RESOLUTION, ATLAS_DEPTH, VOXEL_RESOLUTION, baseUVW
+        volumeSize, VOXEL_RESOLUTION, ATLAS_DEPTH, VOXEL_RESOLUTION, rawUVW
     );
-    
+
+    //currently the density is only in x channel
     float baseDensity = smokeData.x;
     
     if (baseDensity <= 0.01) return 0.0;
     
     float animTime = time * detailNoiseSpeed;
-    float3 detailUVW = baseUVW * detailNoiseUVWScale;
+    float3 detailUVW = rawUVW * detailNoiseUVWScale;
     float4 sampledDetailNoise = noiseTex.SampleLevel(samplerNoise, detailUVW + animTime, 0);
+    //float detailValue = sampledDetailNoise.r;
     //float detailValue = (sampledDetailNoise.r * 0.33 + sampledDetailNoise.g * 0.33 + sampledDetailNoise.b * 0.33);
-    float detailValue = sampledDetailNoise.r * 0.8 + sampledDetailNoise.b * 0.2;
+    float detailValue = sampledDetailNoise.r * 0.7 + sampledDetailNoise.g * 0.1 + sampledDetailNoise.b * 0.1 + sampledDetailNoise.a * 0.1;
     
     float adjustedDensity = baseDensity - (detailValue * detailNoiseStrength) * (1.0 - baseDensity);
+    //float adjustedDensity = baseDensity - (detailValue * detailNoiseStrength);
     return saturate(adjustedDensity * densityMultiplier * smoke.intensity);
 }
 
@@ -368,11 +390,12 @@ float GetSmokeDensityWithGradient(
     );
 
     float3 localPos = worldPos - smoke.position;
-    baseUVW = (localPos / volumeSize) * 0.5 + 0.5;
+    baseUVW = (localPos / volumeSize) + 0.5;
 
     float3 uvwX = baseUVW + float3(gradientOffset, 0, 0);
     float3 uvwY = baseUVW + float3(0, gradientOffset, 0);
-
+    float3 uvwZ = baseUVW + float3(0, 0, gradientOffset);
+    
     float densityX = GetSmokeDensity(
         smoke.position + (uvwX - 0.5) * volumeSize, smoke,
         smokeTex, smokeSampler,
@@ -389,12 +412,24 @@ float GetSmokeDensityWithGradient(
         noiseSpeed, noiseScale, noiseStrength, densityMult
     );
 
+    float densityZ = GetSmokeDensity(
+        smoke.position + (uvwZ - 0.5) * volumeSize, smoke,
+        smokeTex, smokeSampler,
+        noiseTex, noiseSampler,
+        volumeSize, time,
+        noiseSpeed, noiseScale, noiseStrength, densityMult
+    );
+
+
+    float strength = 1.0;
     densityGradient = normalize(float3(
-        finalDensity - densityX,
-        finalDensity - densityY,
-        0.8
+        (finalDensity - densityX) * strength,
+        (finalDensity - densityY)* strength,
+        (finalDensity - densityZ)* strength
     ));
 
+    //densityGradient = float3(0,0,0);
+    
     return finalDensity;
 }
 

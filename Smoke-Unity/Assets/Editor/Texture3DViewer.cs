@@ -5,607 +5,383 @@ using UnityEngine;
 public class Texture3DViewer : EditorWindow
 {
     private Texture3D texture3D;
-    private Material previewMaterial;
+    
+    // 缓存数据
+    private Color[] cachedPixels;
+    private Texture3D lastCachedTexture;
     
     // 查看模式
-    private enum ViewMode { Volume, SliceX, SliceY, SliceZ, AllSlices }
+    private enum ViewMode { SliceX, SliceY, SliceZ }
     private ViewMode currentMode = ViewMode.SliceZ;
     
     // Slice控制
-    private int sliceX = 0;
-    private int sliceY = 0;
-    private int sliceZ = 15;
+    private int sliceIndex = 0;
     
-    // 自动播放控制 (新增功能)
+    // 自动播放
     private bool isPlaying = false;
     private double lastPlayTime = 0;
-    private float playSpeed = 0.05f; // 每次切片的间隔时间（秒）
+    private float playSpeed = 0.1f;
     
-    // Volume控制
-    private float densityMultiplier = 1.0f;
-    private float alphaThreshold = 0.01f;
-    private Color tintColor = Color.white;
+    // 显示增强
+    private float exposure = 1.0f; 
+    private bool renderAsGrayscale = true;
+    private bool ignoreAlpha = true; 
     
-    // 显示控制
-    private bool showGrid = true;
-    private bool showChannelR = true;
-    private bool showChannelG = true;
-    private bool showChannelB = true;
-    private bool showChannelA = true;
+    // 通道
+    private bool showR = true;
+    private bool showG = false;
+    private bool showB = false;
+    private bool showA = false;
     
-    // 烟雾弹选择
-    private int selectedSmoke = 0;
-    private bool isolateSmoke = false;
-    
-    // 缩放和滚动
-    private Vector2 scrollPosition;
+    // --- 视图控制变量 (Pan & Zoom) ---
     private float zoom = 1.0f;
-    
-    // 统计信息
-    private bool showStats = true;
-    private string statsText = "";
-    
-    [MenuItem("Tools/Texture3D Viewer")]
+    private Vector2 panOffset = Vector2.zero; // 记录平移偏移量
+
+    // --- 运行时抓取相关变量 ---
+    private string globalTextureName = "_SmokeTex3D";
+    private bool autoRefresh = false; 
+    private double lastRefreshTime = 0;
+
+    [MenuItem("Tools/Texture3D Runtime Viewer")]
     static void ShowWindow()
     {
-        var window = GetWindow<Texture3DViewer>("Texture3D Viewer");
-        window.minSize = new Vector2(600, 700);
+        var window = GetWindow<Texture3DViewer>("Runtime 3D Viewer");
+        window.minSize = new Vector2(400, 600);
     }
     
-    void OnEnable()
-    {
-        CreatePreviewMaterial();
-    }
-
-    // 新增：每一帧更新逻辑，用于处理自动播放
     void Update()
     {
+        // 自动播放切片逻辑
         if (isPlaying && texture3D != null)
         {
-            // 检查时间间隔
             if (EditorApplication.timeSinceStartup - lastPlayTime > playSpeed)
             {
                 lastPlayTime = EditorApplication.timeSinceStartup;
-                
-                // 根据当前模式增加 Slice 值
-                switch (currentMode)
-                {
-                    case ViewMode.SliceX:
-                        sliceX++;
-                        if (sliceX >= texture3D.width) sliceX = 0; // 循环
-                        break;
-                    case ViewMode.SliceY:
-                        sliceY++;
-                        if (sliceY >= texture3D.height) sliceY = 0; // 循环
-                        break;
-                    case ViewMode.SliceZ:
-                        sliceZ++;
-                        if (sliceZ >= texture3D.depth) sliceZ = 0; // 循环
-                        break;
-                }
-                
-                // 强制重绘窗口以显示更新
+                int maxSlice = GetMaxSlice() - 1;
+                sliceIndex++;
+                if (sliceIndex > maxSlice) sliceIndex = 0;
+                Repaint();
+            }
+        }
+
+        // 自动刷新纹理数据逻辑
+        if (Application.isPlaying && autoRefresh && texture3D != null)
+        {
+            if (EditorApplication.timeSinceStartup - lastRefreshTime > 0.5f)
+            {
+                GrabPixelData();
+                lastRefreshTime = EditorApplication.timeSinceStartup;
                 Repaint();
             }
         }
     }
     
-    void CreatePreviewMaterial()
-    {
-        Shader shader = Shader.Find("Hidden/Texture3DPreview");
-        if (shader == null)
-        {
-            shader = Shader.Find("Unlit/Texture");
-        }
-        previewMaterial = new Material(shader);
-    }
-    
     void OnGUI()
     {
-        EditorGUILayout.BeginHorizontal();
-        
-        // 左侧控制面板
+        EditorGUILayout.BeginVertical();
         DrawControlPanel();
         
-        // 右侧预览区域
-        DrawPreviewArea();
+        // 绘制分割线
+        GUILayout.Box("", GUILayout.ExpandWidth(true), GUILayout.Height(1));
         
-        EditorGUILayout.EndHorizontal();
+        DrawPreviewArea();
+        EditorGUILayout.EndVertical();
     }
     
     void DrawControlPanel()
     {
-        EditorGUILayout.BeginVertical(GUILayout.Width(250));
-        
-        GUILayout.Label("Texture3D Viewer", EditorStyles.boldLabel);
+        GUILayout.Label("Runtime Texture3D Viewer", EditorStyles.boldLabel);
         EditorGUILayout.Space();
         
-        // 纹理选择
-        EditorGUILayout.LabelField("Texture", EditorStyles.boldLabel);
-        texture3D = (Texture3D)EditorGUILayout.ObjectField(texture3D, typeof(Texture3D), false);
+        // ================================================================
+        // 1. 运行时抓取区域
+        // ================================================================
+        EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+        EditorGUILayout.LabelField("Runtime Capture", EditorStyles.boldLabel);
         
-        if (texture3D != null)
-        {
-            EditorGUILayout.LabelField($"Dimensions: {texture3D.width}×{texture3D.height}×{texture3D.depth}");
-            EditorGUILayout.LabelField($"Format: {texture3D.format}");
-            EditorGUILayout.Space();
-        }
-        
-        EditorGUILayout.Space();
-        
-        // 查看模式
-        EditorGUILayout.LabelField("View Mode", EditorStyles.boldLabel);
-        ViewMode newMode = (ViewMode)EditorGUILayout.EnumPopup("Mode", currentMode);
-        if (newMode != currentMode)
-        {
-            currentMode = newMode;
-            isPlaying = false; // 切换模式时停止播放
-        }
-        EditorGUILayout.Space();
-        
-        // Slice控制
-        if (texture3D != null)
-        {
-            bool showPlayControls = false;
+        globalTextureName = EditorGUILayout.TextField("Global Texture Name", globalTextureName);
 
-            if (currentMode == ViewMode.SliceX || currentMode == ViewMode.AllSlices)
+        if (GUILayout.Button("Grab from Global Shader Variables"))
+        {
+            Texture globalTex = Shader.GetGlobalTexture(globalTextureName);
+            if (globalTex is Texture3D t3d)
             {
-                sliceX = EditorGUILayout.IntSlider("Slice X", sliceX, 0, texture3D.width - 1);
-                if (currentMode == ViewMode.SliceX) showPlayControls = true;
+                texture3D = t3d;
+                GrabPixelData();
+                ResetView(); // 抓取新纹理时重置视图
+                Debug.Log($"Successfully grabbed {texture3D.name} ({texture3D.width}x{texture3D.height}x{texture3D.depth})");
             }
-            if (currentMode == ViewMode.SliceY || currentMode == ViewMode.AllSlices)
+            else
             {
-                sliceY = EditorGUILayout.IntSlider("Slice Y", sliceY, 0, texture3D.height - 1);
-                if (currentMode == ViewMode.SliceY) showPlayControls = true;
+                Debug.LogError($"Could not find Texture3D with name '{globalTextureName}' in global shader variables. Make sure the game is running.");
             }
-            if (currentMode == ViewMode.SliceZ || currentMode == ViewMode.AllSlices)
-            {
-                sliceZ = EditorGUILayout.IntSlider("Slice Z", sliceZ, 0, texture3D.depth - 1);
-                if (currentMode == ViewMode.SliceZ) showPlayControls = true;
-            }
+        }
 
-            // 新增：播放控制区域
-            if (showPlayControls)
+        if (texture3D != null && Application.isPlaying)
+        {
+            autoRefresh = EditorGUILayout.Toggle("Auto Refresh Pixels (Slow!)", autoRefresh);
+            if (autoRefresh)
             {
-                EditorGUILayout.Space(5);
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                
-                // 播放按钮
-                Color originalColor = GUI.backgroundColor;
-                GUI.backgroundColor = isPlaying ? Color.red : Color.green;
-                if (GUILayout.Button(isPlaying ? "Stop Playing" : "Auto Play Slice"))
+                EditorGUILayout.HelpBox("Warning: Auto-refreshing usually stalls the editor because extracting 3D pixels from GPU is slow.", MessageType.Warning);
+            }
+            else
+            {
+                if (GUILayout.Button("Refresh Pixels Manually"))
                 {
-                    isPlaying = !isPlaying;
-                    lastPlayTime = EditorApplication.timeSinceStartup;
+                    GrabPixelData();
                 }
-                GUI.backgroundColor = originalColor;
-
-                // 速度控制
-                if (isPlaying)
-                {
-                    EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.LabelField("Speed", GUILayout.Width(40));
-                    playSpeed = EditorGUILayout.Slider(playSpeed, 0.01f, 0.5f);
-                    EditorGUILayout.EndHorizontal();
-                }
-                
-                EditorGUILayout.EndVertical();
             }
         }
-        
-        EditorGUILayout.Space();
-        
-        // 烟雾弹选择（仅对542宽度的纹理）
-        if (texture3D != null && texture3D.width == 542)
-        {
-            EditorGUILayout.LabelField("Smoke Selection", EditorStyles.boldLabel);
-            selectedSmoke = EditorGUILayout.IntSlider("Smoke Index", selectedSmoke, 0, 15);
-            isolateSmoke = EditorGUILayout.Toggle("Isolate Smoke", isolateSmoke);
-            
-            if (GUILayout.Button("Jump to Smoke Center"))
-            {
-                JumpToSmokeCenter();
-            }
-            
-            EditorGUILayout.Space();
-        }
-        
-        // 显示控制
-        EditorGUILayout.LabelField("Display", EditorStyles.boldLabel);
-        showChannelR = EditorGUILayout.Toggle("Show R", showChannelR);
-        showChannelG = EditorGUILayout.Toggle("Show G", showChannelG);
-        showChannelB = EditorGUILayout.Toggle("Show B", showChannelB);
-        showChannelA = EditorGUILayout.Toggle("Show A", showChannelA);
-        EditorGUILayout.Space();
-        
-        // Volume控制
-        if (currentMode == ViewMode.Volume)
-        {
-            EditorGUILayout.LabelField("Volume Rendering", EditorStyles.boldLabel);
-            densityMultiplier = EditorGUILayout.Slider("Density", densityMultiplier, 0.1f, 5.0f);
-            alphaThreshold = EditorGUILayout.Slider("Threshold", alphaThreshold, 0.0f, 1.0f);
-            tintColor = EditorGUILayout.ColorField("Tint Color", tintColor);
-            EditorGUILayout.Space();
-        }
-        
-        // 缩放
-        zoom = EditorGUILayout.Slider("Zoom", zoom, 0.25f, 4.0f);
-        showGrid = EditorGUILayout.Toggle("Show Grid", showGrid);
-        EditorGUILayout.Space();
-        
-        // 统计信息
-        showStats = EditorGUILayout.Toggle("Show Statistics", showStats);
-        
-        if (texture3D != null && GUILayout.Button("Calculate Statistics"))
-        {
-            CalculateStatistics();
-        }
-        
-        if (showStats && !string.IsNullOrEmpty(statsText))
-        {
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Statistics", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox(statsText, MessageType.Info);
-        }
-        
-        EditorGUILayout.Space();
-        
-        // 导出功能
-        EditorGUILayout.LabelField("Export", EditorStyles.boldLabel);
-        if (GUILayout.Button("Export Current Slice as PNG"))
-        {
-            ExportCurrentSlice();
-        }
-        
         EditorGUILayout.EndVertical();
+
+        EditorGUILayout.Space();
+        
+        // 2. 纹理手动选择
+        EditorGUI.BeginChangeCheck();
+        texture3D = (Texture3D)EditorGUILayout.ObjectField("Texture Asset", texture3D, typeof(Texture3D), false);
+        if (EditorGUI.EndChangeCheck())
+        {
+            GrabPixelData();
+            ResetView(); // 切换纹理时重置视图
+            sliceIndex = 0;
+        }
+        
+        if (texture3D == null) return;
+
+        // 显示信息
+        EditorGUILayout.LabelField($"Size: {texture3D.width} x {texture3D.height} x {texture3D.depth} ({texture3D.format})");
+        
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("View Settings", EditorStyles.boldLabel);
+
+        // 3. 模式与切片
+        currentMode = (ViewMode)EditorGUILayout.EnumPopup("Slice Axis", currentMode);
+        
+        int maxSlice = GetMaxSlice();
+        EditorGUILayout.BeginHorizontal();
+        sliceIndex = EditorGUILayout.IntSlider("Slice Index", sliceIndex, 0, maxSlice - 1);
+        
+        if (GUILayout.Button(isPlaying ? "■" : "▶", GUILayout.Width(30)))
+        {
+            isPlaying = !isPlaying;
+        }
+        EditorGUILayout.EndHorizontal();
+
+        // 4. 视觉增强
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Visualization", EditorStyles.boldLabel);
+        
+        exposure = EditorGUILayout.Slider("Exposure", exposure, 0.1f, 50.0f);
+        if (GUILayout.Button("Auto Exposure")) AutoExposure();
+
+        EditorGUILayout.BeginHorizontal();
+        ignoreAlpha = EditorGUILayout.ToggleLeft("Ignore Alpha", ignoreAlpha, GUILayout.Width(100));
+        renderAsGrayscale = EditorGUILayout.ToggleLeft("Grayscale", renderAsGrayscale);
+        EditorGUILayout.EndHorizontal();
+
+        EditorGUILayout.BeginHorizontal();
+        EditorGUILayout.LabelField("Channels:", GUILayout.Width(70));
+        showR = GUILayout.Toggle(showR, "R", "Button");
+        showG = GUILayout.Toggle(showG, "G", "Button");
+        showB = GUILayout.Toggle(showB, "B", "Button");
+        showA = GUILayout.Toggle(showA, "A", "Button");
+        EditorGUILayout.EndHorizontal();
+        
+        EditorGUILayout.BeginHorizontal();
+        zoom = EditorGUILayout.Slider("Zoom", zoom, 0.01f, 10.0f);
+        if (GUILayout.Button("Reset View", GUILayout.Width(80)))
+        {
+            ResetView();
+        }
+        EditorGUILayout.EndHorizontal();
+        EditorGUILayout.HelpBox("Left Click/Drag to Pan. Scroll Wheel to Zoom.", MessageType.None);
     }
     
+    // 从纹理读取像素数据
+    void GrabPixelData()
+    {
+        if (texture3D == null) return;
+
+        try 
+        {
+            cachedPixels = texture3D.GetPixels();
+            lastCachedTexture = texture3D;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Error reading pixels: {e.Message}. Make sure the texture is readable.");
+        }
+    }
+
+    void ResetView()
+    {
+        zoom = 1.0f;
+        panOffset = Vector2.zero;
+    }
+
     void DrawPreviewArea()
     {
-        EditorGUILayout.BeginVertical();
+        if (texture3D == null || cachedPixels == null) return;
+
+        // 获取预览区域的矩形
+        Rect rect = GUILayoutUtility.GetRect(100, 100, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
         
-        if (texture3D == null)
+        // 绘制深色背景
+        EditorGUI.DrawRect(rect, new Color(0.1f, 0.1f, 0.1f));
+
+        // --- 处理输入事件 (Pan & Zoom) ---
+        HandlePreviewInput(rect);
+
+        // 限制绘图区域在 rect 内部 (Clip)
+        GUI.BeginGroup(rect);
+
+        Texture2D sliceTex = ExtractSlice();
+        if (sliceTex != null)
         {
-            EditorGUILayout.HelpBox("Please select a Texture3D to preview", MessageType.Info);
-            EditorGUILayout.EndVertical();
-            return;
+            float aspect = (float)sliceTex.width / sliceTex.height;
+            float w = rect.width * zoom;
+            float h = w / aspect;
+            
+            // 居中显示，并加上平移偏移量
+            // 注意：GUI.BeginGroup 之后，(0,0) 就是 rect 的左上角
+            float x = (rect.width - w) * 0.5f + panOffset.x;
+            float y = (rect.height - h) * 0.5f + panOffset.y;
+            
+            Rect drawRect = new Rect(x, y, w, h);
+            
+            GUI.DrawTexture(drawRect, sliceTex, ScaleMode.ScaleToFit, false);
+            
+            // 画边框
+            Handles.color = new Color(1, 1, 1, 0.5f);
+            Handles.DrawWireCube(drawRect.center, new Vector3(drawRect.width, drawRect.height, 0));
+            
+            DestroyImmediate(sliceTex);
         }
         
-        Rect previewRect = GUILayoutUtility.GetRect(100, 100, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+        GUI.EndGroup();
+    }
+
+    void HandlePreviewInput(Rect rect)
+    {
+        Event e = Event.current;
         
-        // 绘制背景
-        EditorGUI.DrawRect(previewRect, new Color(0.2f, 0.2f, 0.2f));
-        
+        // 只有鼠标在预览区域内才响应
+        if (rect.Contains(e.mousePosition))
+        {
+            // 1. 鼠标滚轮缩放
+            if (e.type == EventType.ScrollWheel)
+            {
+                float zoomDelta = -e.delta.y * 0.05f * zoom; // 基于当前zoom速度缩放
+                zoom += zoomDelta;
+                zoom = Mathf.Clamp(zoom, 0.01f, 10.0f);
+                e.Use(); // 消耗事件，防止滚动列表
+                Repaint();
+            }
+            // 2. 鼠标拖拽平移 (左键或中键)
+            else if (e.type == EventType.MouseDrag && (e.button == 0 || e.button == 2))
+            {
+                panOffset += e.delta;
+                e.Use();
+                Repaint();
+            }
+        }
+    }
+
+    Texture2D ExtractSlice()
+    {
+        int w = 0, h = 0;
         switch (currentMode)
         {
-            case ViewMode.SliceX:
-                DrawSlicePreview(previewRect, 0); // YZ平面
-                break;
-            case ViewMode.SliceY:
-                DrawSlicePreview(previewRect, 1); // XZ平面
-                break;
-            case ViewMode.SliceZ:
-                DrawSlicePreview(previewRect, 2); // XY平面
-                break;
-            case ViewMode.AllSlices:
-                DrawAllSlicesPreview(previewRect);
-                break;
-            case ViewMode.Volume:
-                DrawVolumePreview(previewRect);
-                break;
+            case ViewMode.SliceX: w = texture3D.depth; h = texture3D.height; break;
+            case ViewMode.SliceY: w = texture3D.width; h = texture3D.depth; break;
+            case ViewMode.SliceZ: w = texture3D.width; h = texture3D.height; break;
         }
-        
-        EditorGUILayout.EndVertical();
-    }
-    
-    void DrawSlicePreview(Rect rect, int axis)
-    {
-        // 根据axis提取2D切片
-        Texture2D sliceTexture = Extract2DSlice(axis);
-        
-        if (sliceTexture != null)
+
+        Color[] sliceColors = new Color[w * h];
+        int texW = texture3D.width;
+        int texH = texture3D.height;
+        int texD = texture3D.depth; 
+
+        if (sliceIndex >= (currentMode == ViewMode.SliceX ? texW : (currentMode == ViewMode.SliceY ? texH : texD)))
+            sliceIndex = 0;
+
+        for (int v = 0; v < h; v++)
         {
-            // 计算居中显示的矩形
-            float aspectRatio = (float)sliceTexture.width / sliceTexture.height;
-            float displayWidth = rect.width * zoom;
-            float displayHeight = displayWidth / aspectRatio;
-            
-            if (displayHeight > rect.height * zoom)
+            for (int u = 0; u < w; u++)
             {
-                displayHeight = rect.height * zoom;
-                displayWidth = displayHeight * aspectRatio;
-            }
-            
-            float x = rect.x + (rect.width - displayWidth) * 0.5f;
-            float y = rect.y + (rect.height - displayHeight) * 0.5f;
-            
-            Rect displayRect = new Rect(x, y, displayWidth, displayHeight);
-            
-            // 绘制纹理
-            GUI.DrawTexture(displayRect, sliceTexture, ScaleMode.ScaleToFit, true);
-            
-            // 绘制网格
-            if (showGrid)
-            {
-                DrawGrid(displayRect, sliceTexture.width, sliceTexture.height);
-            }
-            
-            // 绘制烟雾弹边界（如果是XY平面且隔离模式）
-            if (axis == 2 && texture3D.width == 542 && isolateSmoke)
-            {
-                DrawSmokeBounds(displayRect);
-            }
-            
-            // 显示信息
-            DrawSliceInfo(rect, axis);
-            
-            DestroyImmediate(sliceTexture);
-        }
-    }
-    
-    Texture2D Extract2DSlice(int axis)
-    {
-        int width, height;
-        Color[] pixels;
-        
-        switch (axis)
-        {
-            case 0: // YZ平面 (X切片)
-                width = texture3D.depth;
-                height = texture3D.height;
-                pixels = new Color[width * height];
-                
-                for (int z = 0; z < texture3D.depth; z++)
+                int x=0, y=0, z=0;
+                switch (currentMode)
                 {
-                    for (int y = 0; y < texture3D.height; y++)
-                    {
-                        Color c = texture3D.GetPixel(sliceX, y, z);
-                        pixels[z + y * width] = ApplyChannelMask(c);
-                    }
+                    case ViewMode.SliceX: x = sliceIndex; y = v; z = u; break;
+                    case ViewMode.SliceY: x = u; y = sliceIndex; z = v; break;
+                    case ViewMode.SliceZ: x = u; y = v; z = sliceIndex; break;
                 }
-                break;
+
+                int flatIndex = x + (y * texW) + (z * texW * texH);
                 
-            case 1: // XZ平面 (Y切片)
-                width = texture3D.width;
-                height = texture3D.depth;
-                pixels = new Color[width * height];
-                
-                for (int z = 0; z < texture3D.depth; z++)
+                if (flatIndex >= 0 && flatIndex < cachedPixels.Length)
                 {
-                    for (int x = 0; x < texture3D.width; x++)
-                    {
-                        Color c = texture3D.GetPixel(x, sliceY, z);
-                        pixels[x + z * width] = ApplyChannelMask(c);
-                    }
-                }
-                break;
-                
-            case 2: // XY平面 (Z切片)
-            default:
-                width = texture3D.width;
-                height = texture3D.height;
-                pixels = new Color[width * height];
-                
-                for (int y = 0; y < texture3D.height; y++)
-                {
-                    for (int x = 0; x < texture3D.width; x++)
-                    {
-                        Color c = texture3D.GetPixel(x, y, sliceZ);
-                        
-                        // 如果隔离烟雾弹，只显示选中的
-                        if (isolateSmoke && texture3D.width == 542)
-                        {
-                            int smokeStart = selectedSmoke * 34;
-                            int smokeEnd = smokeStart + 32;
-                            if (x < smokeStart || x > smokeEnd)
-                            {
-                                c = Color.black;
-                            }
-                        }
-                        
-                        pixels[x + y * width] = ApplyChannelMask(c);
-                    }
-                }
-                break;
-        }
-        
-        Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
-        texture.SetPixels(pixels);
-        texture.Apply();
-        texture.filterMode = FilterMode.Point; // 像素风格
-        
-        return texture;
-    }
-    
-    Color ApplyChannelMask(Color c)
-    {
-        return new Color(
-            showChannelR ? c.r : 0,
-            showChannelG ? c.g : 0,
-            showChannelB ? c.b : 0,
-            showChannelA ? c.a : 1
-        );
-    }
-    
-    void DrawGrid(Rect rect, int gridWidth, int gridHeight)
-    {
-        Handles.BeginGUI();
-        Handles.color = new Color(1, 1, 1, 0.2f);
-        
-        // 垂直线
-        for (int x = 0; x <= gridWidth; x += 8)
-        {
-            float xPos = rect.x + (x / (float)gridWidth) * rect.width;
-            Handles.DrawLine(new Vector3(xPos, rect.y), new Vector3(xPos, rect.yMax));
-        }
-        
-        // 水平线
-        for (int y = 0; y <= gridHeight; y += 8)
-        {
-            float yPos = rect.y + (y / (float)gridHeight) * rect.height;
-            Handles.DrawLine(new Vector3(rect.x, yPos), new Vector3(rect.xMax, yPos));
-        }
-        
-        Handles.EndGUI();
-    }
-    
-    void DrawSmokeBounds(Rect rect)
-    {
-        Handles.BeginGUI();
-        Handles.color = Color.yellow;
-        
-        int smokeStart = selectedSmoke * 34;
-        int smokeEnd = smokeStart + 32;
-        
-        float startX = rect.x + (smokeStart / (float)texture3D.width) * rect.width;
-        float endX = rect.x + (smokeEnd / (float)texture3D.width) * rect.width;
-        
-        // 绘制边界框
-        Handles.DrawLine(new Vector3(startX, rect.y), new Vector3(startX, rect.yMax));
-        Handles.DrawLine(new Vector3(endX, rect.y), new Vector3(endX, rect.yMax));
-        
-        Handles.EndGUI();
-    }
-    
-    void DrawSliceInfo(Rect rect, int axis)
-    {
-        string axisName = axis == 0 ? "X" : (axis == 1 ? "Y" : "Z");
-        int sliceIndex = axis == 0 ? sliceX : (axis == 1 ? sliceY : sliceZ);
-        
-        GUIStyle style = new GUIStyle(GUI.skin.label);
-        style.normal.textColor = Color.white;
-        style.fontSize = 12;
-        
-        GUI.Label(new Rect(rect.x + 10, rect.y + 10, 200, 20), 
-            $"{axisName} Slice: {sliceIndex}", style);
-    }
-    
-    void DrawAllSlicesPreview(Rect rect)
-    {
-        // 绘制所有Z切片的缩略图网格
-        int cols = Mathf.CeilToInt(Mathf.Sqrt(texture3D.depth));
-        int rows = Mathf.CeilToInt((float)texture3D.depth / cols);
-        
-        float thumbWidth = rect.width / cols;
-        float thumbHeight = rect.height / rows;
-        
-        for (int z = 0; z < texture3D.depth; z++)
-        {
-            int col = z % cols;
-            int row = z / cols;
-            
-            Rect thumbRect = new Rect(
-                rect.x + col * thumbWidth,
-                rect.y + row * thumbHeight,
-                thumbWidth - 2,
-                thumbHeight - 2
-            );
-            
-            // 临时切换到这个slice
-            int oldSlice = sliceZ;
-            sliceZ = z;
-            
-            Texture2D thumb = Extract2DSlice(2);
-            if (thumb != null)
-            {
-                GUI.DrawTexture(thumbRect, thumb);
-                
-                // 标签
-                GUIStyle style = new GUIStyle(GUI.skin.label);
-                style.normal.textColor = Color.white;
-                style.fontSize = 10;
-                GUI.Label(new Rect(thumbRect.x + 2, thumbRect.y + 2, 30, 15), $"Z{z}", style);
-                
-                DestroyImmediate(thumb);
-            }
-            
-            sliceZ = oldSlice;
-        }
-    }
-    
-    void DrawVolumePreview(Rect rect)
-    {
-        EditorGUI.HelpBox(rect, "Volume rendering preview (basic visualization)\nUse Unity's built-in Inspector Volume mode for advanced preview", MessageType.Info);
-    }
-    
-    void JumpToSmokeCenter()
-    {
-        if (texture3D != null && texture3D.width == 542)
-        {
-            sliceX = selectedSmoke * 34 + 16; // 中心
-        }
-    }
-    
-    void CalculateStatistics()
-    {
-        if (texture3D == null) return;
-        
-        int totalPixels = texture3D.width * texture3D.height * texture3D.depth;
-        int nonZeroPixels = 0;
-        float avgR = 0, avgG = 0, avgB = 0, avgA = 0;
-        float maxR = 0, maxG = 0, maxB = 0, maxA = 0;
-        
-        for (int z = 0; z < texture3D.depth; z++)
-        {
-            for (int y = 0; y < texture3D.height; y++)
-            {
-                for (int x = 0; x < texture3D.width; x++)
-                {
-                    Color c = texture3D.GetPixel(x, y, z);
-                    
-                    if (c.r > 0 || c.g > 0 || c.b > 0 || c.a > 0)
-                    {
-                        nonZeroPixels++;
-                        avgR += c.r;
-                        avgG += c.g;
-                        avgB += c.b;
-                        avgA += c.a;
-                        
-                        maxR = Mathf.Max(maxR, c.r);
-                        maxG = Mathf.Max(maxG, c.g);
-                        maxB = Mathf.Max(maxB, c.b);
-                        maxA = Mathf.Max(maxA, c.a);
-                    }
+                    sliceColors[u + v * w] = ProcessColor(cachedPixels[flatIndex]);
                 }
             }
         }
+
+        Texture2D result = new Texture2D(w, h);
+        result.filterMode = FilterMode.Point;
+        result.SetPixels(sliceColors);
+        result.Apply();
+        return result;
+    }
+
+    Color ProcessColor(Color c)
+    {
+        float r = showR ? c.r : 0;
+        float g = showG ? c.g : 0;
+        float b = showB ? c.b : 0;
+        float a = showA ? c.a : 1;
+
+        r *= exposure;
+        g *= exposure;
+        b *= exposure;
         
-        if (nonZeroPixels > 0)
+        if (ignoreAlpha) a = 1.0f;
+
+        if (renderAsGrayscale)
         {
-            avgR /= nonZeroPixels;
-            avgG /= nonZeroPixels;
-            avgB /= nonZeroPixels;
-            avgA /= nonZeroPixels;
+            int activeChannels = (showR?1:0) + (showG?1:0) + (showB?1:0);
+            if (activeChannels == 1)
+            {
+                float val = showR ? r : (showG ? g : b);
+                return new Color(val, val, val, a);
+            }
         }
-        
-        float fillRate = (nonZeroPixels / (float)totalPixels) * 100f;
-        
-        statsText = $"Total Pixels: {totalPixels:N0}\n" +
-                    $"Non-Zero: {nonZeroPixels:N0} ({fillRate:F2}%)\n" +
-                    $"Avg RGBA: ({avgR:F3}, {avgG:F3}, {avgB:F3}, {avgA:F3})\n" +
-                    $"Max RGBA: ({maxR:F3}, {maxG:F3}, {maxB:F3}, {maxA:F3})";
+        return new Color(r, g, b, a);
+    }
+
+    int GetMaxSlice()
+    {
+        if (texture3D == null) return 0;
+        switch (currentMode)
+        {
+            case ViewMode.SliceX: return texture3D.width;
+            case ViewMode.SliceY: return texture3D.height;
+            case ViewMode.SliceZ: return texture3D.depth;
+        }
+        return 0;
     }
     
-    void ExportCurrentSlice()
+    void AutoExposure()
     {
-        if (texture3D == null) return;
-        
-        string path = EditorUtility.SaveFilePanel(
-            "Export Slice as PNG",
-            "Assets",
-            $"Slice_{currentMode}_{sliceZ}.png",
-            "png"
-        );
-        
-        if (!string.IsNullOrEmpty(path))
+        if (cachedPixels == null) return;
+        float maxVal = 0f;
+        for(int i=0; i<cachedPixels.Length; i+=10) 
         {
-            Texture2D slice = Extract2DSlice(currentMode == ViewMode.SliceX ? 0 : (currentMode == ViewMode.SliceY ? 1 : 2));
-            byte[] bytes = slice.EncodeToPNG();
-            System.IO.File.WriteAllBytes(path, bytes);
-            DestroyImmediate(slice);
-            
-            Debug.Log($"Slice exported to {path}");
+            Color c = cachedPixels[i];
+            if(showR) maxVal = Mathf.Max(maxVal, c.r);
         }
+        
+        if (maxVal > 0.0001f) exposure = 1.0f / maxVal;
+        else exposure = 100.0f;
     }
 }
 #endif

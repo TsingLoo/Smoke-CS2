@@ -31,6 +31,10 @@ Material:
         m_Texture: {fileID: 2800000, guid: 65ba9f8127776b84f90acac078eec34c, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _ColorLUT3D:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _ColorLUT3d:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -55,36 +59,79 @@ Material:
     - _MaxSteps: 2000
     m_Floats:
     - _AmbientStrength: 0
-    - _Anisotropy: 0.146
+    - _AnimationSpeed: 0.44
+    - _AnimationTimeScale: 1
+    - _Anisotropy: 0
+    - _BaseBrightness: -0.39
     - _BlendFactor: 0
-    - _ColorBoost: 2.46
+    - _ColorBoost: 0
+    - _ColorMixHigh: 0.8
+    - _ColorMixLow: 0.3
+    - _ColorParam1: 0.3
+    - _ColorParam2: 0.8
     - _ContrastPower: 1
-    - _DensityMultiplier: 2.18
+    - _CoreDensityBoost: 1.5
+    - _DeformStrength: 2.58
+    - _DensityContrast: 1.5
+    - _DensityFalloff: 0.5
+    - _DensityLightingInfluence: 0.584
+    - _DensityMultiplier: 2.47
+    - _DensityThreshold: 0.01
     - _DepthFade: 0
     - _DetailNoiseScale: 0.03
-    - _DetailNoiseSpeed: 0.05
-    - _DetailNoiseStrength: 2.83
-    - _DetailNoiseUVWScale: 1.69
-    - _DiffusePower: 2
-    - _DitherDistance: 2.41
+    - _DetailNoiseSpeed: 2.93
+    - _DetailNoiseStrength: 3.14
+    - _DetailNoiseUVWScale: 0.5
+    - _DiffusePower: 0.5
+    - _DitherDistance: 0.06
     - _DitherStrength: 40.15
-    - _ExtinctionScale: 4.13
-    - _GradientOffset: 63.9
+    - _DitherTransitionDistance: 150
+    - _EmissionEnabled: 3.17
+    - _EmissionFalloff: 54.87
+    - _EmissionStrength: 0.46
+    - _ExtinctionScale: 5.34
+    - _FalloffEnd: 0.726
+    - _FalloffPower: 0.8
+    - _FalloffStart: 0.048
+    - _FinalColorMultiplier: 1.12
+    - _GradientOffset: 9.59
     - _HeightAttenuationPower: 0.68
     - _HeightAttenuationStrength: -0.57
-    - _HeightLightingPower: -1.95
+    - _HeightLightingPower: -0.7
+    - _LUTStrength: 0.5
     - _LightPenetrationDepth: 0.17
-    - _LightingBoost: 11.57
+    - _LightingBoost: 2.49
+    - _LightingMixFactor: 0.877
+    - _NoiseExponent: 1.55
+    - _NoiseFrequency1: -5.51
+    - _NoiseFrequency2: 22.42
+    - _NoiseMixParam: 0.785
+    - _NoiseNormalStrength: 0.5
     - _NoiseScale: 0
     - _NoiseSpeed: 20
     - _NoiseStrength: 0
+    - _NoiseWeight1: 3.52
+    - _NoiseWeight2: 33.64
+    - _NormalBlendFactor: 0.5
+    - _NormalPerturbStrength: 0.5
+    - _NormalZScale: 1.94
     - _PenetrationFalloffPower: -0.09
-    - _PhaseStrength: 8.5
-    - _RaymarchingStepSize: 0.05
-    - _Saturation: 0.65
+    - _PhaseStrength: 5.79
+    - _RaymarchingStepSize: 0.04
+    - _RotationSpeed: 0.82
+    - _RotationStrength: 1
+    - _Saturation: -6.09
     - _ShadowHardness: 0.58
     - _ShadowOffsetScale: 2.8
     - _SmokeHardness: 6.38
-    - _SpecularPower: 1.16
+    - _SpecularPower: 1.42
+    - _SphericalFalloffEnabled: 0.25
+    - _SunHighlightStrength: 219.8
+    - _TimeScale: 1.75
+    - _UseLUT: 0
+    - _WaveAmplitude: 6.3
+    - _WaveFrequency: -1.31
+    - _WaveStrength: 0.37
+    - _ZStretch: 2
     m_Colors: []
   m_BuildTextureStacks: []

@@ -340,27 +340,56 @@ float GetSmokeDensity(
     float detailNoiseSpeed, float detailNoiseUVWScale, float detailNoiseStrength, float densityMultiplier)
 {
     float3 rawUVW;
+    // 1. 获取宏观体素密度 (骨架)
     float4 smokeData = SampleSmokeDensity(
         smokeTex, samplerSmoke,
         samplePos, smoke.position, smoke.volumeIndex,
         volumeSize, VOXEL_RESOLUTION, ATLAS_DEPTH, VOXEL_RESOLUTION, rawUVW
     );
 
-    //currently the density is only in x channel
     float baseDensity = smokeData.x;
+    if (baseDensity <= 0.001) return 0.0;
+
+    // 2. 坐标扭曲 (Distortion) - 模拟流体翻滚 [关键改进]
+    // 使用宏观密度和时间来驱动扭曲，让核心动得慢，边缘动得快
+    float3 curlFreq = samplePos * 2.0; 
+    float3 distortion = float3(
+        sin(curlFreq.y + time * detailNoiseSpeed),
+        sin(curlFreq.z + time * detailNoiseSpeed * 1.3),
+        sin(curlFreq.x + time * detailNoiseSpeed * 0.7)
+    ) * 0.1; // 0.1 是扭曲强度，可调
+
+    // 3. 计算细节纹理坐标
+    float3 detailUVW = rawUVW * detailNoiseUVWScale + distortion;
     
-    if (baseDensity <= 0.01) return 0.0;
+    // 4. 采样细节噪声 (皮肉)
+    // 加上 abs() 做镜像，减少重复感 [小技巧]
+    // 加上 time 做一点整体向上的漂移
+    float3 sampleCoords = abs(detailUVW + float3(0, time * 0.1, 0)); 
+    float4 noiseVal = noiseTex.SampleLevel(samplerNoise, sampleCoords, 0);
+
+    // 5. 多通道混合 (FBM-like) [改进]
+    // R通道作为基础形状，G通道作为高频细节
+    float detailShape = noiseVal.r;
+    float detailFine  = noiseVal.g;
+    float combinedNoise = detailShape * 0.7 + detailFine * 0.3;
+
+    // 6. 边缘侵蚀与核心保护 (Erosion & Preservation) [核心算法改进]
+    // 这种写法模仿了参考代码的 mix 逻辑
+    // 当 baseDensity 小时 (边缘)，result = base - noise (被吃掉)
+    // 当 baseDensity 大时 (核心)，result = base (保持厚重)
+    // 甚至可以写成 lerp(base - noise, base + noise, base) 让核心更厚
+    float erosionAmount = combinedNoise * detailNoiseStrength;
     
-    float animTime = time * detailNoiseSpeed;
-    float3 detailUVW = rawUVW * detailNoiseUVWScale;
-    float4 sampledDetailNoise = noiseTex.SampleLevel(samplerNoise, detailUVW + animTime, 0);
-    //float detailValue = sampledDetailNoise.r;
-    //float detailValue = (sampledDetailNoise.r * 0.33 + sampledDetailNoise.g * 0.33 + sampledDetailNoise.b * 0.33);
-    float detailValue = sampledDetailNoise.r * 0.7 + sampledDetailNoise.g * 0.1 + sampledDetailNoise.b * 0.1 + sampledDetailNoise.a * 0.1;
-    
-    float adjustedDensity = baseDensity - (detailValue * detailNoiseStrength) * (1.0 - baseDensity);
-    //float adjustedDensity = baseDensity - (detailValue * detailNoiseStrength);
-    return saturate(adjustedDensity * densityMultiplier * smoke.intensity);
+    float finalDensity = lerp(
+        baseDensity - erosionAmount, // 边缘：做减法，产生絮状物
+        baseDensity,                 // 核心：保持原样 (或者 baseDensity + erosionAmount * 0.5)
+        saturate(baseDensity * 2.0)  // 权重：快速过渡到保护模式
+    );
+
+    // 7. 最后的修剪与增强
+    // 把被减成负数的部分切掉，并乘上强度
+    return saturate(finalDensity * densityMultiplier * smoke.intensity);
 }
 
 float GetSmokeDensityWithGradient(

@@ -75,29 +75,29 @@ Material:
     - _DensityContrast: 1.5
     - _DensityFalloff: 0.5
     - _DensityLightingInfluence: 0.584
-    - _DensityMultiplier: 2.47
+    - _DensityMultiplier: 3.46
     - _DensityThreshold: 0.01
     - _DepthFade: 0
     - _DetailNoiseScale: 0.03
-    - _DetailNoiseSpeed: 2.93
-    - _DetailNoiseStrength: 3.14
-    - _DetailNoiseUVWScale: 0.5
+    - _DetailNoiseSpeed: 0.7
+    - _DetailNoiseStrength: 2.55
+    - _DetailNoiseUVWScale: 0.88
     - _DiffusePower: 0.5
     - _DitherDistance: 0.06
-    - _DitherStrength: 40.15
+    - _DitherStrength: 40.24
     - _DitherTransitionDistance: 150
     - _EmissionEnabled: 3.17
     - _EmissionFalloff: 54.87
     - _EmissionStrength: 0.46
-    - _ExtinctionScale: 5.34
+    - _ExtinctionScale: 5.38
     - _FalloffEnd: 0.726
     - _FalloffPower: 0.8
     - _FalloffStart: 0.048
     - _FinalColorMultiplier: 1.12
-    - _GradientOffset: 9.59
+    - _GradientOffset: 0.85
     - _HeightAttenuationPower: 0.68
     - _HeightAttenuationStrength: -0.57
-    - _HeightLightingPower: -0.7
+    - _HeightLightingPower: 4.49
     - _LUTStrength: 0.5
     - _LightPenetrationDepth: 0.17
     - _LightingBoost: 2.49
@@ -116,7 +116,7 @@ Material:
     - _NormalPerturbStrength: 0.5
     - _NormalZScale: 1.94
     - _PenetrationFalloffPower: -0.09
-    - _PhaseStrength: 5.79
+    - _PhaseStrength: 5.03
     - _RaymarchingStepSize: 0.04
     - _RotationSpeed: 0.82
     - _RotationStrength: 1
@@ -124,7 +124,7 @@ Material:
     - _ShadowHardness: 0.58
     - _ShadowOffsetScale: 2.8
     - _SmokeHardness: 6.38
-    - _SpecularPower: 1.42
+    - _SpecularPower: 0.83
     - _SphericalFalloffEnabled: 0.25
     - _SunHighlightStrength: 219.8
     - _TimeScale: 1.75

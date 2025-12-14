@@ -12,7 +12,6 @@ public class SmokeVolumeManager : MonoBehaviour
     public static SmokeVolumeManager Instance { get; private set; }
     
     public const float GRID_WORLD_SIZE = 14.0f; 
-    
     public const int MAX_SMOKE_COUNT = 16;
     public const int VOXEL_RES = 32;
     public const int ATLAS_DEPTH = VOXEL_RES * MAX_SMOKE_COUNT; 
@@ -35,28 +34,31 @@ public class SmokeVolumeManager : MonoBehaviour
     public Material smokeMaskMaterial; 
     
     [Header("Interpolation Settings")]
-    [Tooltip("GPU插值的目标时间（秒）。数据上传后，GPU会在这个时间内平滑过渡到新值")]
+    [Tooltip("GPU插值的目标时间（秒）。只有当上一帧插值完全结束后，才会上传新数据。")]
     [Range(0.05f, 0.5f)]
     public float interpolationDuration = 0.1f;
     
-    [Tooltip("最小上传间隔（秒）。防止过于频繁的GPU上传")]
-    [Range(0.016f, 0.2f)]
-    public float minUploadInterval = 0.05f;
+    // [Removed] minUploadInterval 已移除，由 interpolationDuration 全权控制节奏
 
     [Header("Debug")]
     public bool showGizmos = true;
     public Color gizmoColor = new Color(0, 1, 0, 0.3f);
+    
     [SerializeField, ReadOnly] private float currentInterpolationT;
-    [SerializeField, ReadOnly] private float timeSinceLastUpload;
     
     // ===== 内部资源 =====
     private Texture3D smokeAtlas;          
-    private byte[] atlasDataCPU;           
+    private byte[] atlasDataCPU;           // 对应 Texture3D 的实际数据 (RGBA)
     private ComputeBuffer metadataBuffer;  
     private SmokeVolumeData[] metadataArray;
     
     private class SlotInfo { public bool active; public Vector3 pos; public Vector3 size; }
     private SlotInfo[] slots = new SlotInfo[MAX_SMOKE_COUNT];
+
+    // ===== 新增：Pending 缓冲区 (用于解决 R/G 通道数据一致的问题) =====
+    // 存储最新的 Sim 数据，等待上传时机
+    private byte[][] pendingDensityData;
+    private byte[][] pendingSmokeData;
 
     // ===== 时间驱动插值状态 =====
     private float lastUploadTime = 0f;
@@ -92,6 +94,7 @@ public class SmokeVolumeManager : MonoBehaviour
     {
         for(int i=0; i<MAX_SMOKE_COUNT; i++) slots[i] = new SlotInfo();
 
+        // R=HistoryAll, G=TargetAll, B=HistorySmoke, A=TargetSmoke
         smokeAtlas = new Texture3D(VOXEL_RES, VOXEL_RES, ATLAS_DEPTH, TextureFormat.RGBA32, false);
         smokeAtlas.wrapMode = TextureWrapMode.Clamp;
         smokeAtlas.filterMode = FilterMode.Trilinear;
@@ -104,6 +107,16 @@ public class SmokeVolumeManager : MonoBehaviour
         int stride = Marshal.SizeOf(typeof(SmokeVolumeData)); 
         metadataBuffer = new ComputeBuffer(MAX_SMOKE_COUNT, stride);
         metadataArray = new SmokeVolumeData[MAX_SMOKE_COUNT];
+
+        // 初始化 Pending 缓冲区
+        int voxelsPerSlot = VOXEL_RES * VOXEL_RES * VOXEL_RES;
+        pendingDensityData = new byte[MAX_SMOKE_COUNT][];
+        pendingSmokeData = new byte[MAX_SMOKE_COUNT][];
+        for (int i = 0; i < MAX_SMOKE_COUNT; i++)
+        {
+            pendingDensityData[i] = new byte[voxelsPerSlot];
+            pendingSmokeData[i] = new byte[voxelsPerSlot];
+        }
     }
 
     public int AllocateSmokeSlot()
@@ -134,40 +147,16 @@ public class SmokeVolumeManager : MonoBehaviour
     }
     
     /// <summary>
-    /// 写入密度数据。数据会被编码到RGBA通道中：
-    /// R = 历史 allData (用于插值起点)
-    /// G = 当前 allData (用于插值终点)
-    /// B = 历史 smokeData
-    /// A = 当前 smokeData
+    /// 接收来自 Simulation 的新数据。
+    /// 注意：这里只更新 Pending 缓存，不触碰 Texture，确保 R/G 差异。
     /// </summary>
     public void WriteDensityData(int slotIndex, byte[] allData, byte[] smokeData)
     {
         if (slotIndex < 0 || slotIndex >= MAX_SMOKE_COUNT) return;
 
-        int voxelCount = VOXEL_RES * VOXEL_RES * VOXEL_RES;
-        
-        if (allData.Length != voxelCount || smokeData.Length != voxelCount)
-        {
-            Debug.LogError($"数据长度错误！需要 {voxelCount}，实际 allData:{allData.Length}, smokeData:{smokeData.Length}");
-            return;
-        }
-        
-        int startByteIndex = slotIndex * voxelCount * 4;
-        
-        for (int i = 0; i < voxelCount; i++)
-        {
-            int ptr = startByteIndex + (i * 4);
-
-            // 读取当前值作为历史
-            byte oldG = atlasDataCPU[ptr + 1];
-            byte oldA = atlasDataCPU[ptr + 3];
-
-            // 编码：R=历史All, G=新All, B=历史Smoke, A=新Smoke
-            atlasDataCPU[ptr + 0] = oldG;      // R: 历史 allData
-            atlasDataCPU[ptr + 1] = allData[i]; // G: 新 allData
-            atlasDataCPU[ptr + 2] = oldA;      // B: 历史 smokeData
-            atlasDataCPU[ptr + 3] = smokeData[i]; // A: 新 smokeData
-        }
+        // 仅拷贝到 Pending 缓冲区
+        Array.Copy(allData, pendingDensityData[slotIndex], allData.Length);
+        Array.Copy(smokeData, pendingSmokeData[slotIndex], smokeData.Length);
 
         isTextureDirty = true;
     }
@@ -196,18 +185,24 @@ public class SmokeVolumeManager : MonoBehaviour
 
     private void ClearSlotData(int slotIndex)
     {
-        int oneVolSize = VOXEL_RES * VOXEL_RES * VOXEL_RES * 4; // RGBA
-        int offset = slotIndex * oneVolSize;
-        System.Array.Clear(atlasDataCPU, offset, oneVolSize);
+        int voxelsPerSlot = VOXEL_RES * VOXEL_RES * VOXEL_RES;
+        
+        // 1. 清空 Pending
+        Array.Clear(pendingDensityData[slotIndex], 0, voxelsPerSlot);
+        Array.Clear(pendingSmokeData[slotIndex], 0, voxelsPerSlot);
+
+        // 2. 清空 Texture CPU 缓存
+        int oneVolBytes = voxelsPerSlot * 4; // RGBA
+        int offset = slotIndex * oneVolBytes;
+        Array.Clear(atlasDataCPU, offset, oneVolBytes);
+        
         isTextureDirty = true;
     }
     
     void Update()
     {
-        // 每帧更新插值因子
         UpdateInterpolationFactor();
         
-        // 更新元数据
         if (isMetadataDirty)
         {
             UploadMetadata();
@@ -218,53 +213,81 @@ public class SmokeVolumeManager : MonoBehaviour
     void LateUpdate()
     {
         // 检查是否需要上传纹理
-        // 条件：有脏数据 AND 距离上次上传超过最小间隔
+        // 核心修改：只有当插值时间 >= 设定时间 (即上一段动画播完了)，才允许上传
         float timeSinceUpload = Time.time - lastUploadTime;
+        bool animationFinished = timeSinceUpload >= interpolationDuration;
         
-        if (isTextureDirty && timeSinceUpload >= minUploadInterval)
+        if (isTextureDirty && animationFinished)
         {
             UploadTextureData();
         }
     }
 
-    /// <summary>
-    /// 计算并更新GPU插值因子
-    /// </summary>
     void UpdateInterpolationFactor()
     {
-        timeSinceLastUpload = Time.time - lastUploadTime;
+        float timeSinceUpload = Time.time - lastUploadTime;
         
-        // 计算插值进度 (0 -> 1)
-        // 当 timeSinceLastUpload >= interpolationDuration 时，t = 1（完全使用新值）
-        float t = Mathf.Clamp01(timeSinceLastUpload / interpolationDuration);
+        // 计算 t (0 -> 1)
+        float t = Mathf.Clamp01(timeSinceUpload / interpolationDuration);
         
-        // 可选：使用缓动函数让过渡更平滑
-        t = SmoothStep(t);
-        
+        // 缓动
+        //t = SmoothStep(t);
+        t = t * t * t * (t * (t * 6f - 15f) + 10f);
         currentInterpolationT = t;
-        
-        // 传给Shader
         Shader.SetGlobalFloat(_InterpolationT, t);
     }
 
     /// <summary>
-    /// 上传纹理数据到GPU
+    /// 上传逻辑的核心：执行关键帧交换 (Swap)
     /// </summary>
     void UploadTextureData()
     {
+        int voxelsPerSlot = VOXEL_RES * VOXEL_RES * VOXEL_RES;
+
+        for (int i = 0; i < MAX_SMOKE_COUNT; i++)
+        {
+            if (!slots[i].active) continue;
+
+            byte[] newAll = pendingDensityData[i];
+            byte[] newSmoke = pendingSmokeData[i];
+            
+            int startByteIndex = i * voxelsPerSlot * 4;
+
+            for (int v = 0; v < voxelsPerSlot; v++)
+            {
+                int ptr = startByteIndex + (v * 4);
+
+                // --- 关键逻辑：Frame Swap ---
+                // 1. 读取当前的 Target (G/A)，它将成为下一帧的 History
+                byte lastFrameTargetAll = atlasDataCPU[ptr + 1];
+                byte lastFrameTargetSmoke = atlasDataCPU[ptr + 3];
+
+                // 2. 写入 History (R/B) = 上一帧的 Target
+                atlasDataCPU[ptr + 0] = lastFrameTargetAll;   // R
+                atlasDataCPU[ptr + 2] = lastFrameTargetSmoke; // B
+
+                // 3. 写入 Target (G/A) = Pending 中最新的 Sim 数据
+                atlasDataCPU[ptr + 1] = newAll[v];   // G
+                atlasDataCPU[ptr + 3] = newSmoke[v]; // A
+            }
+        }
+
+        // 提交到 GPU
         smokeAtlas.SetPixelData(atlasDataCPU, 0);
         smokeAtlas.Apply();
         
-        // 重置插值计时器
+        // 重置时间轴
         lastUploadTime = Time.time;
         isTextureDirty = false;
         
-        // 立即将插值因子设为0（从历史值开始）
+        // 立即重置插值因子，开始新一轮混合
         Shader.SetGlobalFloat(_InterpolationT, 0f);
+        currentInterpolationT = 0f;
     }
 
     void UploadMetadata()
     {
+        // 确保非活跃槽位数据清空
         for (int i = 0; i < MAX_SMOKE_COUNT; i++)
         {
             if (!slots[i].active)
@@ -287,20 +310,9 @@ public class SmokeVolumeManager : MonoBehaviour
         Shader.SetGlobalTexture(_SmokeTex3D, smokeAtlas);   
     }
     
-    /// <summary>
-    /// SmoothStep缓动函数
-    /// </summary>
     static float SmoothStep(float t)
     {
         return t * t * (3f - 2f * t);
-    }
-    
-    /// <summary>
-    /// 更平滑的SmootherStep (Ken Perlin's版本)
-    /// </summary>
-    static float SmootherStep(float t)
-    {
-        return t * t * t * (t * (t * 6f - 15f) + 10f);
     }
     
     void OnDrawGizmos()
@@ -316,20 +328,15 @@ public class SmokeVolumeManager : MonoBehaviour
             {
                 Gizmos.color = gizmoColor;
                 Gizmos.DrawWireCube(slots[i].pos, slots[i].size);
-                
-                Gizmos.color = Color.yellow;
-                Gizmos.DrawSphere(slots[i].pos, 0.2f);
             }
         }
     }
 }
 
-/// <summary>
-/// 用于在Inspector中显示只读字段的特性
-/// </summary>
+// Editor Helper
+#if UNITY_EDITOR
 public class ReadOnlyAttribute : PropertyAttribute { }
 
-#if UNITY_EDITOR
 [CustomPropertyDrawer(typeof(ReadOnlyAttribute))]
 public class ReadOnlyDrawer : PropertyDrawer
 {
@@ -338,31 +345,6 @@ public class ReadOnlyDrawer : PropertyDrawer
         GUI.enabled = false;
         EditorGUI.PropertyField(position, property, label);
         GUI.enabled = true;
-    }
-}
-
-[CustomEditor(typeof(SmokeVolumeManager))]
-public class SmokeVolumeManagerEditor : Editor
-{
-    public override void OnInspectorGUI()
-    {
-        base.OnInspectorGUI();
-        SmokeVolumeManager manager = (SmokeVolumeManager)target;
-
-        EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Debug Controls", EditorStyles.boldLabel);
-        
-        if (GUILayout.Button("Force Clear All Slots"))
-        {
-             for(int i=0; i<SmokeVolumeManager.MAX_SMOKE_COUNT; i++) 
-                 manager.ReleaseSmokeSlot(i);
-        }
-        
-        // 实时显示插值状态
-        if (Application.isPlaying)
-        {
-            Repaint();
-        }
     }
 }
 #endif

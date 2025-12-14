@@ -717,7 +717,7 @@ MonoBehaviour:
   preferredSize: {x: 0.7, y: 1, z: 0.6}
   roundness: 2
   maxPrecomputeBudget: 1800
-  burstTargetRatio: 0.453
+  burstTargetRatio: 0.736
   spreadTargetRatio: 0.943
   precomputeVoxelsPerFrame: 1000
   burstDuration: 0.3
@@ -2491,12 +2491,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   smokeMaskMaterial: {fileID: 2100000, guid: a05040bc5b5a2ae4b8723965c0d8a4b0, type: 2}
-  interpolationDuration: 0.1
-  minUploadInterval: 0.05
+  interpolationDuration: 0.3
   showGizmos: 1
   gizmoColor: {r: 0, g: 1, b: 0, a: 0.3}
   currentInterpolationT: 0
-  timeSinceLastUpload: 0
 --- !u!114 &1431085186
 MonoBehaviour:
   m_ObjectHideFlags: 0

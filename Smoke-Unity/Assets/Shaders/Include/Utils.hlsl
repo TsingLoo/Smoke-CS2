@@ -337,7 +337,7 @@ float GetSmokeDensity(
     Texture3D smokeTex, SamplerState samplerSmoke,
     Texture3D noiseTex, SamplerState samplerNoise,
     float volumeSize, float time,
-    float detailNoiseSpeed, float detailNoiseUVWScale, float detailNoiseStrength, float densityMultiplier)
+    float detailNoiseSpeed, float detailNoiseUVWScale, float detailNoiseStrength, float densityMultiplier, float interpolationT)
 {
     float3 rawUVW;
     // 1. 获取宏观体素密度 (骨架)
@@ -347,7 +347,10 @@ float GetSmokeDensity(
         volumeSize, VOXEL_RESOLUTION, ATLAS_DEPTH, VOXEL_RESOLUTION, rawUVW
     );
 
-    float baseDensity = smokeData.x;
+    float baseDensity = lerp( smokeData.x, smokeData.y, interpolationT);
+    //float baseDensity = smokeData.y;
+    //float  baseDensity = 0.0;
+
     if (baseDensity <= 0.001) return 0.0;
 
     // 2. 坐标扭曲 (Distortion) - 模拟流体翻滚 [关键改进]
@@ -357,7 +360,7 @@ float GetSmokeDensity(
         sin(curlFreq.y + time * detailNoiseSpeed),
         sin(curlFreq.z + time * detailNoiseSpeed * 1.3),
         sin(curlFreq.x + time * detailNoiseSpeed * 0.7)
-    ) * 0.1; // 0.1 是扭曲强度，可调
+    ) * 0.01; // 0.1 是扭曲强度，可调
 
     // 3. 计算细节纹理坐标
     float3 detailUVW = rawUVW * detailNoiseUVWScale + distortion;
@@ -406,6 +409,7 @@ float GetSmokeDensityWithGradient(
     float noiseScale, 
     float noiseStrength, 
     float densityMult,
+    float interpolationT,
     out float3 baseUVW,
     out float3 densityGradient
 )
@@ -415,7 +419,7 @@ float GetSmokeDensityWithGradient(
         smokeTex, smokeSampler,
         noiseTex, noiseSampler,
         volumeSize, time,
-        noiseSpeed, noiseScale, noiseStrength, densityMult
+        noiseSpeed, noiseScale, noiseStrength, densityMult, interpolationT
     );
 
     float3 localPos = worldPos - smoke.position;
@@ -430,7 +434,7 @@ float GetSmokeDensityWithGradient(
         smokeTex, smokeSampler,
         noiseTex, noiseSampler,
         volumeSize, time,
-        noiseSpeed, noiseScale, noiseStrength, densityMult
+        noiseSpeed, noiseScale, noiseStrength, densityMult, interpolationT
     );
 
     float densityY = GetSmokeDensity(
@@ -438,23 +442,23 @@ float GetSmokeDensityWithGradient(
         smokeTex, smokeSampler,
         noiseTex, noiseSampler,
         volumeSize, time,
-        noiseSpeed, noiseScale, noiseStrength, densityMult
+        noiseSpeed, noiseScale, noiseStrength, densityMult, interpolationT
     );
 
-    float densityZ = GetSmokeDensity(
-        smoke.position + (uvwZ - 0.5) * volumeSize, smoke,
-        smokeTex, smokeSampler,
-        noiseTex, noiseSampler,
-        volumeSize, time,
-        noiseSpeed, noiseScale, noiseStrength, densityMult
-    );
+    // float densityZ = GetSmokeDensity(
+    //     smoke.position + (uvwZ - 0.5) * volumeSize, smoke,
+    //     smokeTex, smokeSampler,
+    //     noiseTex, noiseSampler,
+    //     volumeSize, time,
+    //     noiseSpeed, noiseScale, noiseStrength, densityMult, interpolationT
+    // );
 
 
     float strength = 1.0;
     densityGradient = normalize(float3(
         (finalDensity - densityX) * strength,
         (finalDensity - densityY)* strength,
-        (finalDensity - densityZ)* strength
+        0.8
     ));
 
     //densityGradient = float3(0,0,0);

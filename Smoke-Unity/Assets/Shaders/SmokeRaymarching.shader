@@ -125,7 +125,7 @@ Shader "Unlit/SmokeRaymarching"
             CBUFFER_END
 
             float _VolumeSize;
-            
+            float _SmokeInterpolationT;
             float4 _BlueNoiseTex2D_TexelSize;
             
             struct FragmentOutput
@@ -325,7 +325,7 @@ Shader "Unlit/SmokeRaymarching"
                             _SmokeTex3D, sampler_SmokeTex3D, 
                             _HighFreqNoise, sampler_HighFreqNoise, 
                             _VolumeSize, _Time.y, 
-                            _DetailNoiseSpeed, _DetailNoiseUVWScale, _DetailNoiseStrength, _DensityMultiplier,
+                            _DetailNoiseSpeed, _DetailNoiseUVWScale, _DetailNoiseStrength, _DensityMultiplier, _SmokeInterpolationT,
                             baseUVW, densityGradient
                         );
 
@@ -427,6 +427,7 @@ Shader "Unlit/SmokeRaymarching"
                 #endif
                 output.OpticalDepth = opticalDepth;
                 output.SmokeColor = accumulatedColor;
+                //output.SmokeColor = float4(_SmokeInterpolationT,_SmokeInterpolationT,_SmokeInterpolationT,1.0);
 
                 return output;
             }

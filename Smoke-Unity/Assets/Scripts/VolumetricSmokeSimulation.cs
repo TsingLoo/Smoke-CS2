@@ -5,25 +5,62 @@ using UnityEngine;
 
 public class VolumetricSmokeSimulation : MonoBehaviour
 {
-    static Vector3Int[] allDirs = {
+    public enum SmokePhase
+    {
+        Idle,
+        Precomputing,  // 预计算阶段
+        Burst,         // 爆发阶段：快速扩张显示
+        Spread,        // 扩散阶段：缓慢扩展显示
+        Dissipate      // 消散阶段：逐渐淡出
+    }
+
+    static readonly Vector3Int[] AllDirs = {
         new Vector3Int(1,0,0), new Vector3Int(-1,0,0),
         new Vector3Int(0,0,1), new Vector3Int(0,0,-1),
-        new Vector3Int(0,1,0), new Vector3Int(0,-1,0) 
+        new Vector3Int(0,1,0), new Vector3Int(0,-1,0)
     };
 
     [SerializeField] Color TintColor = Color.white;
-    
+
     [Header("Target Shape")]
-    public Vector3 preferredSize = new Vector3(0.7f, 1.0f, 0.6f); 
+    public Vector3 preferredSize = new Vector3(0.7f, 1.0f, 0.6f);
     public float roundness = 4.0f;
+
+    [Header("Budget Settings")]
+    [Tooltip("预计算的最大voxel数量")]
+    public int maxPrecomputeBudget = 15000;
     
-    [Header("Budget & Grid")]
-    public int voxelBudget = 10000; 
+    [Tooltip("Burst阶段结束时显示的voxel比例 (相对于maxPrecomputeBudget)")]
+    [Range(0.1f, 1.0f)]
+    public float burstTargetRatio = 0.5f;
+    
+    [Tooltip("Spread阶段结束时显示的voxel比例")]
+    [Range(0.1f, 1.0f)]
+    public float spreadTargetRatio = 0.9f;
+
+    [Header("Precompute Settings")]
+    [Tooltip("预计算每帧处理的voxel数量")]
+    public int precomputeVoxelsPerFrame = 500;
+
+    [Header("Phase Timing")]
+    public float burstDuration = 0.5f;
+    public float spreadDuration = 3.0f;
+    public float dissipateDuration = 2.0f;
+
+    [Header("Phase Curves")]
+    [Tooltip("Burst阶段的显示进度曲线 (时间0-1 → 显示比例0-1)")]
+    public AnimationCurve burstProgressCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+    
+    [Tooltip("Spread阶段的显示进度曲线")]
+    public AnimationCurve spreadProgressCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+    
+    [Tooltip("Dissipate阶段的透明度曲线")]
+    public AnimationCurve dissipateAlphaCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
 
     [Header("Physics")]
     public LayerMask obstacleMask;
     [Range(0.1f, 0.9f)] public float collisionShrink = 0.5f;
-    [Range(0.8f, 0.99f)] public float traceShrink = 0.95f; 
+    [Range(0.8f, 0.99f)] public float traceShrink = 0.95f;
 
     [Header("Gravity Control")]
     public float gravityBias = 10.0f;
@@ -33,38 +70,46 @@ public class VolumetricSmokeSimulation : MonoBehaviour
         new Keyframe(0f, 1f),
         new Keyframe(1f, 0f)
     );
-    
-    [Header("Dynamics (Constrained)")]
-    public bool enableDynamics = true;
-    
-    [Range(0.01f, 0.5f)] 
-    public float flowSpeed = 0.1f;
-    
-    [Range(0.0f, 50.0f)]
-    [Tooltip("最大扰动幅度：25 约等于 0.1 的密度 (byte范围 0-255)")]
-    public float maxDeviation = 25.0f; 
-    
-    public float updateInterval = 0.05f;
-    
+
+    [Header("References")]
     [SerializeField] SmokeVolumeShadowProxy shadowProxy;
-    
+    [SerializeField] SmokeVolumeManager volumeManager;
+
+    // === Runtime State (Public Read-Only) ===
+    public SmokePhase CurrentPhase { get; private set; } = SmokePhase.Idle;
+    public float PhaseProgress { get; private set; } = 0f;
+    public int PrecomputedCount => precomputedVoxels.Count;
+    public int VisibleCount { get; private set; } = 0;
+    public float PrecomputeProgress => maxPrecomputeBudget > 0 ? (float)precomputedVoxels.Count / maxPrecomputeBudget : 0f;
+
+    // === Internal State ===
     private float voxelSize;
     private int mySlotIndex = -1;
-    
-    private byte[] densityBuffer;   // 当前用于渲染的数据
-    private byte[] nonBorderBuffer; // 用于渲染的数据，但是不包含碰撞
-    private byte[] initialBuffer;   // 初始生成的静态数据（锚点）
-    private byte[] backBuffer;      // 双缓冲计算用
-    
+
+    private byte[] densityBuffer;
+    private byte[] nonBorderBuffer;
     private bool[,,] visited;
-    private List<SmokeNode> filledVoxels = new List<SmokeNode>();
-    private float startWorldY;
+
+    // 预计算结果：按优先级排序的所有voxel
+    private List<SmokeNode> precomputedVoxels = new List<SmokeNode>();
+    // 每个voxel的基础密度（预计算时确定）
+    private float[] precomputedDensities;
     
-    [SerializeField] SmokeVolumeManager volumeManager;
+    private MinHeap<SmokeNode> priorityQueue;
+    private float maxShapeCostReached = 0f;
+    private int minY, maxY;
+
+    private float phaseTimer = 0f;
+    private float globalAlpha = 1f;
+    
+    // Burst结束时的目标数量
+    private int burstTargetCount;
+    // Spread结束时的目标数量
+    private int spreadTargetCount;
 
     private int _gridRes => SmokeVolumeManager.VOXEL_RES;
     private float _gridWorldSize => SmokeVolumeManager.GRID_WORLD_SIZE;
-    
+
     struct SmokeNode : IComparable<SmokeNode>
     {
         public Vector3Int pos;
@@ -72,249 +117,352 @@ public class VolumetricSmokeSimulation : MonoBehaviour
         public float shapeCost;
         public bool isWall;
 
-        public int CompareTo(SmokeNode other)
-        {
-            return priority.CompareTo(other.priority);
-        }
+        public int CompareTo(SmokeNode other) => priority.CompareTo(other.priority);
     }
 
-    IEnumerator Start()
+    void Start()
     {
-        if (volumeManager == null) yield break;
+        InitializeSimulation();
+    }
+
+    void InitializeSimulation()
+    {
+        if (volumeManager == null)
+        {
+            Debug.LogError("VolumeManager is not assigned!");
+            return;
+        }
+
         mySlotIndex = volumeManager.AllocateSmokeSlot();
-        if (mySlotIndex == -1) yield break;
-        
-        shadowProxy.SetVolumeIndex(mySlotIndex);
+        if (mySlotIndex == -1)
+        {
+            Debug.LogError("Failed to allocate smoke slot!");
+            return;
+        }
+
+        if (shadowProxy != null)
+            shadowProxy.SetVolumeIndex(mySlotIndex);
 
         volumeManager.WriteSmokeMetadata(
             mySlotIndex, transform.position, Vector3.one * _gridWorldSize, TintColor, 1.0f
         );
-        
+
         voxelSize = _gridWorldSize / _gridRes;
-        
+
         int totalVoxels = _gridRes * _gridRes * _gridRes;
         densityBuffer = new byte[totalVoxels];
         nonBorderBuffer = new byte[totalVoxels];
-        initialBuffer = new byte[totalVoxels]; // 初始化锚点Buffer
-        backBuffer = new byte[totalVoxels];
-        
         visited = new bool[_gridRes, _gridRes, _gridRes];
 
-        startWorldY = transform.position.y;
-        
-        yield return StartCoroutine(SimulatePriorityFill());
-        
-        Array.Copy(densityBuffer, initialBuffer, densityBuffer.Length);
-        
-        if (enableDynamics)
-        {
-            float timeAccumulator = 0f;
-            while (true)
-            {
-                timeAccumulator += Time.deltaTime;
-                // 执行受限扰动模拟
-                //StepConstrainedSimulation(timeAccumulator);
-                yield return new WaitForSeconds(updateInterval);
-            }
-        }
+        priorityQueue = new MinHeap<SmokeNode>(4096);
+        precomputedVoxels = new List<SmokeNode>(maxPrecomputeBudget);
+
+        // 自动开始
+        StartSimulation();
     }
 
-    // void Update()
-    // {
-    //     if (volumeManager == null)
-    //     {
-    //         Debug.Log("FAiled to find ");
-    //     }
-    //
-    //     if (mySlotIndex != -1)
-    //     {
-    //         volumeManager.WriteSmokeMetadata(
-    //             mySlotIndex, transform.position, Vector3.one * _gridWorldSize, TintColor, 1.0f
-    //         );
-    //     }
-    // }
+    /// <summary>
+    /// 开始烟雾模拟
+    /// </summary>
+    public void StartSimulation()
+    {
+        if (mySlotIndex == -1) return;
 
-    void OnDisable()
-    {
-        StopAllCoroutines();
-        if (mySlotIndex != -1 && volumeManager != null)
-            volumeManager.ReleaseSmokeSlot(mySlotIndex);
+        ResetSimulationState();
+        TransitionToPhase(SmokePhase.Precomputing);
     }
-    
-    IEnumerator SimulatePriorityFill()
+
+    void ResetSimulationState()
     {
-        MinHeap<SmokeNode> pQueue = new MinHeap<SmokeNode>(2048);
+        // 清空缓冲区
+        Array.Clear(densityBuffer, 0, densityBuffer.Length);
+        Array.Clear(nonBorderBuffer, 0, nonBorderBuffer.Length);
+        Array.Clear(visited, 0, visited.Length);
+
+        precomputedVoxels.Clear();
+        //priorityQueue.Clear();
+
+        // 初始化起始点
         int center = _gridRes / 2;
         Vector3Int startPos = new Vector3Int(center, center, center);
         float startShapeCost = CalculateShapeCost(startPos);
         float startTotalCost = CalculateTotalCost(startPos, startShapeCost);
 
-        pQueue.Push(new SmokeNode { pos = startPos, priority = startTotalCost, shapeCost = startShapeCost });
-        visited[center, center, center] = true;
-        filledVoxels.Clear();
-        
-        int processedPerFrame = 0;
-        float maxShapeCostReached = 0f;
-
-        // [新增] 追踪生成的垂直范围
-        int minY = center;
-        int maxY = center;
-
-        while (pQueue.Count > 0 && filledVoxels.Count < voxelBudget)
+        priorityQueue.Push(new SmokeNode
         {
-            SmokeNode current = pQueue.Pop();
-            filledVoxels.Add(current);
-            
-            // [新增] 更新垂直边界
+            pos = startPos,
+            priority = startTotalCost,
+            shapeCost = startShapeCost,
+            isWall = false
+        });
+        visited[center, center, center] = true;
+
+        maxShapeCostReached = 0f;
+        minY = center;
+        maxY = center;
+        globalAlpha = 1f;
+        VisibleCount = 0;
+        
+        // 计算各阶段目标数量
+        burstTargetCount = Mathf.RoundToInt(maxPrecomputeBudget * burstTargetRatio);
+        spreadTargetCount = Mathf.RoundToInt(maxPrecomputeBudget * spreadTargetRatio);
+    }
+
+    void TransitionToPhase(SmokePhase newPhase)
+    {
+        CurrentPhase = newPhase;
+        phaseTimer = 0f;
+        PhaseProgress = 0f;
+
+        switch (newPhase)
+        {
+            case SmokePhase.Precomputing:
+                // 开始预计算
+                break;
+            case SmokePhase.Burst:
+                // 预计算完成，计算密度
+                FinalizePrecompute();
+                break;
+            case SmokePhase.Spread:
+                // Spread从Burst结束的位置继续
+                break;
+            case SmokePhase.Dissipate:
+                // 开始淡出
+                break;
+            case SmokePhase.Idle:
+                // 完全清空
+                Array.Clear(densityBuffer, 0, densityBuffer.Length);
+                Array.Clear(nonBorderBuffer, 0, nonBorderBuffer.Length);
+                UploadDensityData();
+                break;
+        }
+    }
+
+    void Update()
+    {
+        if (CurrentPhase == SmokePhase.Idle || mySlotIndex == -1) return;
+
+        switch (CurrentPhase)
+        {
+            case SmokePhase.Precomputing:
+                UpdatePrecomputePhase();
+                break;
+            case SmokePhase.Burst:
+                UpdateBurstPhase();
+                break;
+            case SmokePhase.Spread:
+                UpdateSpreadPhase();
+                break;
+            case SmokePhase.Dissipate:
+                UpdateDissipatePhase();
+                break;
+        }
+    }
+
+    #region Precompute Phase
+
+    void UpdatePrecomputePhase()
+    {
+        int processed = 0;
+
+        while (priorityQueue.Count > 0 && 
+               precomputedVoxels.Count < maxPrecomputeBudget && 
+               processed < precomputeVoxelsPerFrame)
+        {
+            SmokeNode current = priorityQueue.Pop();
+            precomputedVoxels.Add(current);
+            processed++;
+
+            // 更新垂直边界
             if (current.pos.y < minY) minY = current.pos.y;
             if (current.pos.y > maxY) maxY = current.pos.y;
-            
+
             if (current.isWall) continue;
             if (current.shapeCost > maxShapeCostReached) maxShapeCostReached = current.shapeCost;
-            
-            for (int i = 0; i < allDirs.Length; i++)
+
+            // 探索邻居
+            for (int i = 0; i < AllDirs.Length; i++)
             {
-                Vector3Int neighbor = current.pos + allDirs[i];
+                Vector3Int neighbor = current.pos + AllDirs[i];
                 if (!IsIndexValid(neighbor) || visited[neighbor.x, neighbor.y, neighbor.z]) continue;
-                
+
                 bool isTerminalNode = CheckCollision(neighbor) || !CheckConnectivity(current.pos, neighbor);
                 float neighborShapeCost = CalculateShapeCost(neighbor);
                 float neighborTotalCost = CalculateTotalCost(neighbor, neighborShapeCost);
 
                 visited[neighbor.x, neighbor.y, neighbor.z] = true;
-                pQueue.Push(new SmokeNode { pos = neighbor, priority = neighborTotalCost, shapeCost = neighborShapeCost, isWall = isTerminalNode });
-            }
-
-            processedPerFrame++;
-            if (processedPerFrame > 1000)
-            {
-                processedPerFrame = 0;
-                // 暂时传入 minY 和 maxY 进行预览，虽然中间过程可能不准确
-                ApplyDensity(maxShapeCostReached, minY, maxY);
-                yield return null;
+                priorityQueue.Push(new SmokeNode
+                {
+                    pos = neighbor,
+                    priority = neighborTotalCost,
+                    shapeCost = neighborShapeCost,
+                    isWall = isTerminalNode
+                });
             }
         }
-        // 最终应用，传入准确的 minY 和 maxY
-        ApplyDensity(maxShapeCostReached, minY, maxY);
+
+        // 检查预计算是否完成
+        bool precomputeDone = precomputedVoxels.Count >= maxPrecomputeBudget || priorityQueue.Count == 0;
+        
+        if (precomputeDone)
+        {
+            // 更新实际的目标数量（可能预计算没填满）
+            int actualCount = precomputedVoxels.Count;
+            burstTargetCount = Mathf.Min(burstTargetCount, actualCount);
+            spreadTargetCount = Mathf.Min(spreadTargetCount, actualCount);
+            
+            TransitionToPhase(SmokePhase.Burst);
+        }
     }
 
-    // [修改] 增加 minY 和 maxY 参数
-    void ApplyDensity(float maxCost, int minY, int maxY)
+    /// <summary>
+    /// 预计算完成后，计算每个voxel的基础密度
+    /// </summary>
+    void FinalizePrecompute()
     {
-        float range = Mathf.Max(maxCost, 0.01f);
+        int count = precomputedVoxels.Count;
+        precomputedDensities = new float[count];
         
-        // 计算垂直高度差，防止除以0
-        float heightSpan = Mathf.Max(maxY - minY, 1.0f);
-        // 定义顶部柔和过渡的比例 (比如顶部的 20% 区域开始变淡)
-        float topFadeRatio = 0.2f; 
-        float fadeHeightStart = minY + heightSpan * (1.0f - topFadeRatio);
+        float range = Mathf.Max(maxShapeCostReached, 0.01f);
+        float heightSpan = Mathf.Max(maxY - this.transform.position.y, 1.0f);
 
-        foreach (var node in filledVoxels)
+        for (int i = 0; i < count; i++)
         {
-            // 1. 原始的基于距离的密度 (这一步导致了平顶，因为maxCost由水平距离决定)
+            var node = precomputedVoxels[i];
+            
+            // 基于距离的密度
             float t = Mathf.Clamp01(node.shapeCost / range);
             float baseDensity = densityFalloff.Evaluate(t);
 
-            // 2. [新增] 垂直方向的强制衰减 (Vertical Mask)
-            // 计算当前点在垂直方向上的归一化位置 (0在底部, 1在顶部)
-            // float normalizedY = (node.pos.y - minY) / heightSpan;
-            
-            // 或者更简单：距离顶部的距离
+            // 垂直方向衰减
             float distToTop = maxY - node.pos.y;
+            float verticalMask = 1.0f;
             
-            // 创建一个垂直遮罩：
-            // 如果离顶部很近(distToTop 小)，mask 趋向于 0
-            // 这里的 5.0f 是淡出的体素格数，你可以改成 heightSpan * 0.2f
-            float verticalMask = Mathf.SmoothStep(0f, 1f, distToTop / (heightSpan * 0.25f + 0.01f));
-
-            // 3. 混合密度
-            float finalDensity = baseDensity * verticalMask;
-
-            int idx = GetFlatIndex(node.pos);
-            densityBuffer[idx] = (byte)(finalDensity * 255);
-            if (!node.isWall)
+            if (distToTop >= 0)
             {
-                nonBorderBuffer[idx] = (byte)(finalDensity * 255);
+                verticalMask= Mathf.SmoothStep(0f, 1f, distToTop / (heightSpan * 0.25f + 0.01f));
             }
             
-            //densityBuffer[idx] = (byte)(1.0 * 255);
+            //verticalMask= Mathf.SmoothStep(0f, 1f, distToTop / (heightSpan * 0.25f + 0.01f));
+            precomputedDensities[i] = baseDensity * verticalMask;
+        }
+    }
+
+    #endregion
+
+    #region Display Phases
+
+    void UpdateBurstPhase()
+    {
+        // 更新时间进度
+        phaseTimer += Time.deltaTime;
+        PhaseProgress = Mathf.Clamp01(phaseTimer / burstDuration);
+
+        // 通过曲线计算当前应该显示多少个voxel
+        // Burst阶段: 从0到burstTargetCount
+        float curveValue = burstProgressCurve.Evaluate(PhaseProgress);
+        int targetVisible = Mathf.RoundToInt(curveValue * burstTargetCount);
+
+        // 更新显示
+        UpdateVisibleVoxels(targetVisible, globalAlpha);
+
+        // 检查阶段结束
+        if (PhaseProgress >= 1f)
+        {
+            TransitionToPhase(SmokePhase.Spread);
+        }
+    }
+
+    void UpdateSpreadPhase()
+    {
+        phaseTimer += Time.deltaTime;
+        PhaseProgress = Mathf.Clamp01(phaseTimer / spreadDuration);
+
+        // Spread阶段: 从burstTargetCount到spreadTargetCount
+        float curveValue = spreadProgressCurve.Evaluate(PhaseProgress);
+        int targetVisible = Mathf.RoundToInt(
+            Mathf.Lerp(burstTargetCount, spreadTargetCount, curveValue)
+        );
+
+        UpdateVisibleVoxels(targetVisible, globalAlpha);
+
+        if (PhaseProgress >= 1f)
+        {
+            TransitionToPhase(SmokePhase.Dissipate);
+        }
+    }
+
+    void UpdateDissipatePhase()
+    {
+        phaseTimer += Time.deltaTime;
+        PhaseProgress = Mathf.Clamp01(phaseTimer / dissipateDuration);
+
+        // Dissipate阶段: 数量不变，只是alpha变化
+        globalAlpha = dissipateAlphaCurve.Evaluate(PhaseProgress);
+
+        UpdateVisibleVoxels(VisibleCount, globalAlpha);
+
+        if (PhaseProgress >= 1f)
+        {
+            TransitionToPhase(SmokePhase.Idle);
+        }
+    }
+
+    private int lastVisibleCount = -0;
+    private float lastAlpha = -0;
+    /// <summary>
+    /// 更新可见的voxel数量和透明度
+    /// </summary>
+    void UpdateVisibleVoxels(int targetCount, float alpha)
+    {
+        bool needRepaint = !Mathf.Approximately(alpha, lastAlpha) || !Mathf.Approximately(alpha, 1.0f);
+        int drawStartIndex = needRepaint ? 0 : lastVisibleCount;
+
+        if (lastVisibleCount > targetCount || lastAlpha > alpha)
+        {
+            Array.Clear(densityBuffer, 0, densityBuffer.Length);
+            Array.Clear(nonBorderBuffer, 0, nonBorderBuffer.Length);
         }
 
-        if (mySlotIndex != -1)
-            SmokeVolumeManager.Instance.WriteDensityData(mySlotIndex, densityBuffer, nonBorderBuffer);
+        targetCount = Mathf.Clamp(targetCount, 0, precomputedVoxels.Count);
+        VisibleCount = targetCount;
+
+        // 清空缓冲区
+        //Array.Clear(densityBuffer, 0, densityBuffer.Length);
+        //Array.Clear(nonBorderBuffer, 0, nonBorderBuffer.Length);
+
+        // 只渲染前targetCount个voxel
+        for (int i = drawStartIndex; i < targetCount; i++)
+        {
+            var node = precomputedVoxels[i];
+            float finalDensity = precomputedDensities[i] * alpha;
+
+            int idx = GetFlatIndex(node.pos);
+            byte densityByte = (byte)(finalDensity * 255);
+            densityBuffer[idx] = densityByte;
+
+            if (!node.isWall)
+            {
+                nonBorderBuffer[idx] = densityByte;
+            }
+        }
+        
+        lastVisibleCount = VisibleCount;
+        lastAlpha = alpha;
+        UploadDensityData();
     }
-    
-    // void StepConstrainedSimulation(float time)
-    // {
-    //     int res = _gridRes;
-    //     int resSqr = res * res;
-    //     
-    //     // 遍历所有格子 (注意：边界保留1格不处理，防止索引越界)
-    //     for (int z = 1; z < res - 1; z++)
-    //     {
-    //         for (int y = 1; y < res - 1; y++)
-    //         {
-    //             for (int x = 1; x < res - 1; x++)
-    //             {
-    //                 int idx = x + y * res + z * resSqr;
-    //                 
-    //                 float baseVal = initialBuffer[idx];    // 初始锚点（理想形状）
-    //                 float currentVal = densityBuffer[idx]; // 当前这一帧的数值
-    //                 
-    //                 // 1. 先计算邻居情况（看看有没有烟雾流过来）
-    //                 float neighborSum = 0;
-    //                 neighborSum += densityBuffer[idx + 1];       
-    //                 neighborSum += densityBuffer[idx - 1];       
-    //                 neighborSum += densityBuffer[idx + res];     
-    //                 neighborSum += densityBuffer[idx - res];     
-    //                 neighborSum += densityBuffer[idx + resSqr];  
-    //                 neighborSum += densityBuffer[idx - resSqr];  
-    //                 float avg = neighborSum / 6.0f;
-    //                 
-    //                 // 如果：
-    //                 // 1. 这里本来就没烟 (baseVal 低)
-    //                 // 2. 现在也没烟 (currentVal 低)
-    //                 // 3. 邻居也没烟流过来 (avg 低)
-    //                 // 则跳过
-    //                 if (baseVal < 1.0f && currentVal < 1.0f && avg < 1.0f) 
-    //                 {
-    //                     backBuffer[idx] = 0;
-    //                     continue;
-    //                 }
-    //
-    //                 // 2. 噪声扰动 (保持不变，用于产生动态纹理)
-    //                 float noise = Mathf.Sin(x * 0.3f + time * flowSpeed) * Mathf.Cos(z * 0.3f + time * flowSpeed * 0.8f) * Mathf.Sin(y * 0.5f + time * flowSpeed * 1.2f);
-    //                 
-    //                 // 3. 混合与扩散
-    //                 // 让当前值慢慢向邻居平均值靠拢 (Lerp)，同时叠加噪声
-    //                 float dynamicVal = Mathf.Lerp(currentVal, avg, 0.2f);
-    //
-    //                 // 4. [锚定约束] 
-    //                 // 即使是空地 (baseVal=0)，这里也允许它增长到 maxDeviation (例如 25)。
-    //                 // 这就允许了烟雾向外“晕染”出一层薄薄的动态边缘。
-    //                 float minLimit = Mathf.Max(0, baseVal - maxDeviation);
-    //                 float maxLimit = Mathf.Min(255, baseVal + maxDeviation);
-    //                 
-    //                 dynamicVal = Mathf.Clamp(dynamicVal, minLimit, maxLimit);
-    //
-    //                 // 5. [低值剔除]
-    //                 // 扩散到一定程度太淡了就直接抹掉，防止无限计算极小值
-    //                 if (dynamicVal < 2.0f) dynamicVal = 0;
-    //
-    //                 backBuffer[idx] = (byte)dynamicVal;
-    //             }
-    //         }
-    //     }
-    //     
-    //     // 交换双缓冲
-    //     var temp = densityBuffer;
-    //     densityBuffer = backBuffer;
-    //     backBuffer = temp;
-    //     
-    //     // 上传数据
-    //     if (mySlotIndex != -1)
-    //         SmokeVolumeManager.Instance.WriteDensityData(mySlotIndex, densityBuffer);
-    // }
+
+    void UploadDensityData()
+    {
+        if (mySlotIndex != -1 && SmokeVolumeManager.Instance != null)
+        {
+            SmokeVolumeManager.Instance.WriteDensityData(mySlotIndex, densityBuffer, nonBorderBuffer);
+        }
+    }
+
+    #endregion
+
+    #region Helper Methods
 
     float CalculateShapeCost(Vector3Int gridPos)
     {
@@ -331,14 +479,18 @@ public class VolumetricSmokeSimulation : MonoBehaviour
 
     float CalculateTotalCost(Vector3Int gridPos, float shapeCost)
     {
-        float normalizedY = (gridPos.y - (_gridRes / 2f)) / (_gridRes / 2f); 
+        float normalizedY = (gridPos.y - (_gridRes / 2f)) / (_gridRes / 2f);
         float gravityPenalty = normalizedY * gravityBias;
         return shapeCost + gravityPenalty;
     }
-    
-    
-    bool IsIndexValid(Vector3Int p) => p.x >= 0 && p.x < _gridRes && p.y >= 0 && p.y < _gridRes && p.z >= 0 && p.z < _gridRes;
-    int GetFlatIndex(Vector3Int p) => p.x + (p.y * _gridRes) + (p.z * _gridRes * _gridRes);
+
+    bool IsIndexValid(Vector3Int p) =>
+        p.x >= 0 && p.x < _gridRes &&
+        p.y >= 0 && p.y < _gridRes &&
+        p.z >= 0 && p.z < _gridRes;
+
+    int GetFlatIndex(Vector3Int p) =>
+        p.x + (p.y * _gridRes) + (p.z * _gridRes * _gridRes);
 
     Vector3 GridToWorld(Vector3Int p)
     {
@@ -364,33 +516,123 @@ public class VolumetricSmokeSimulation : MonoBehaviour
         Vector3 halfExtents = Vector3.one * (voxelSize * 0.5f) * collisionShrink;
         return Physics.CheckBox(center, halfExtents, Quaternion.identity, obstacleMask);
     }
-    
+
+    #endregion
+
+    #region Public API
+
+    /// <summary>
+    /// 重新播放
+    /// </summary>
+    public void Replay()
+    {
+        StartSimulation();
+    }
+
+    /// <summary>
+    /// 强制跳转到指定阶段
+    /// </summary>
+    public void ForceTransitionTo(SmokePhase phase)
+    {
+        // 如果还在预计算，不允许跳转到显示阶段
+        if (CurrentPhase == SmokePhase.Precomputing && phase != SmokePhase.Idle)
+        {
+            Debug.LogWarning("Cannot transition while precomputing. Wait for precompute to finish.");
+            return;
+        }
+        TransitionToPhase(phase);
+    }
+
+    /// <summary>
+    /// 立即完成预计算（阻塞式，用于需要立即显示的情况）
+    /// </summary>
+    public void ForceCompletePrecompute()
+    {
+        if (CurrentPhase != SmokePhase.Precomputing) return;
+
+        while (priorityQueue.Count > 0 && precomputedVoxels.Count < maxPrecomputeBudget)
+        {
+            SmokeNode current = priorityQueue.Pop();
+            precomputedVoxels.Add(current);
+
+            if (current.pos.y < minY) minY = current.pos.y;
+            if (current.pos.y > maxY) maxY = current.pos.y;
+
+            if (current.isWall) continue;
+            if (current.shapeCost > maxShapeCostReached) maxShapeCostReached = current.shapeCost;
+
+            for (int i = 0; i < AllDirs.Length; i++)
+            {
+                Vector3Int neighbor = current.pos + AllDirs[i];
+                if (!IsIndexValid(neighbor) || visited[neighbor.x, neighbor.y, neighbor.z]) continue;
+
+                bool isTerminalNode = CheckCollision(neighbor) || !CheckConnectivity(current.pos, neighbor);
+                float neighborShapeCost = CalculateShapeCost(neighbor);
+                float neighborTotalCost = CalculateTotalCost(neighbor, neighborShapeCost);
+
+                visited[neighbor.x, neighbor.y, neighbor.z] = true;
+                priorityQueue.Push(new SmokeNode
+                {
+                    pos = neighbor,
+                    priority = neighborTotalCost,
+                    shapeCost = neighborShapeCost,
+                    isWall = isTerminalNode
+                });
+            }
+        }
+
+        int actualCount = precomputedVoxels.Count;
+        burstTargetCount = Mathf.Min(burstTargetCount, actualCount);
+        spreadTargetCount = Mathf.Min(spreadTargetCount, actualCount);
+
+        TransitionToPhase(SmokePhase.Burst);
+    }
+
+    #endregion
+
+    #region Lifecycle
+
+    void OnDisable()
+    {
+        CurrentPhase = SmokePhase.Idle;
+        if (mySlotIndex != -1 && volumeManager != null)
+            volumeManager.ReleaseSmokeSlot(mySlotIndex);
+    }
+
+    #endregion
+
+    #region Debug Visualization
+
     void OnDrawGizmosSelected()
     {
-        if (!false) return;
         Gizmos.color = Color.cyan;
         Gizmos.DrawWireCube(transform.position, preferredSize);
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireCube(transform.position, Vector3.one * _gridWorldSize);
-        Gizmos.color = Color.red;
-        float limitY = (Application.isPlaying ? startWorldY : transform.position.y);
-        Gizmos.DrawWireCube(new Vector3(transform.position.x, limitY, transform.position.z), new Vector3(_gridWorldSize, 0.1f, _gridWorldSize));
 
-        if (Application.isPlaying && densityBuffer != null)
+        Gizmos.color = Color.yellow;
+        float gridSize = Application.isPlaying ? _gridWorldSize : SmokeVolumeManager.GRID_WORLD_SIZE;
+        Gizmos.DrawWireCube(transform.position, Vector3.one * gridSize);
+
+        if (Application.isPlaying && precomputedVoxels.Count > 0 && VisibleCount > 0)
         {
             float halfRes = _gridRes / 2f;
-            for (int x=0; x<_gridRes; x+=2) for (int y=0; y<_gridRes; y+=2) for (int z=0; z<_gridRes; z+=2)
+            int step = Mathf.Max(1, VisibleCount / 300);
+            
+            for (int i = 0; i < VisibleCount; i += step)
             {
-                int idx = x + y*_gridRes + z*_gridRes*_gridRes;
-                if (densityBuffer[idx] > 10)
+                var node = precomputedVoxels[i];
+                float density = precomputedDensities[i] * globalAlpha;
+                
+                if (density > 0.04f)
                 {
-                    Gizmos.color = new Color(0,1,0, densityBuffer[idx]/255f);
-                    float ox = (x - halfRes) * voxelSize + (voxelSize * 0.5f);
-                    float oy = (y - halfRes) * voxelSize + (voxelSize * 0.5f);
-                    float oz = (z - halfRes) * voxelSize + (voxelSize * 0.5f);
-                    Gizmos.DrawCube(transform.position + new Vector3(ox, oy, oz), Vector3.one * voxelSize * 0.9f);
+                    Gizmos.color = new Color(0, 1, 0, density * 0.5f);
+                    float ox = (node.pos.x - halfRes) * voxelSize + (voxelSize * 0.5f);
+                    float oy = (node.pos.y - halfRes) * voxelSize + (voxelSize * 0.5f);
+                    float oz = (node.pos.z - halfRes) * voxelSize + (voxelSize * 0.5f);
+                    Gizmos.DrawCube(transform.position + new Vector3(ox, oy, oz), Vector3.one * voxelSize * 0.8f);
                 }
             }
         }
     }
+
+    #endregion
 }

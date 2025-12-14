@@ -31,6 +31,7 @@ class MinHeap<T> where T : IComparable<T>
             index = parent;
         }
     }
+    
     void HeapifyDown(int index)
     {
         while (true)

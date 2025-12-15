@@ -657,4 +657,256 @@ float GetBulletPenetration(float3 currentPos, StructuredBuffer<BulletHoleData> b
     return densityMult;
 }
 
+// CS2风格的噪声采样函数
+float4 SampleNoiseCS2(
+    Texture3D noiseTex, 
+    SamplerState noiseSampler,
+    float3 coord,
+    float3 timeOffset,
+    float gamma,
+    float colorA,
+    float colorB,
+    float blendFactor
+)
+{
+    // 1. abs() 镜像 + 时间滚动
+    float3 sampleCoord = (abs(coord) - timeOffset) * 0.07;
+    
+    // 2. 采样并做gamma校正
+    float4 noise = pow(noiseTex.SampleLevel(noiseSampler, sampleCoord, 0), gamma);
+    
+    // 3. CS2的颜色混合方式
+    float4 colorMixA = lerp(colorA, colorB, noise);
+    float4 colorMixB = lerp(0.25, -1.5, noise);
+    float4 result = lerp(colorMixA, colorMixB, blendFactor);
+    
+    return result;
+}
+
+// 从噪声计算密度值
+float ExtractDensity(float4 noiseSample)
+{
+    return (noiseSample.x + noiseSample.y * 0.95) * 4.6;
+}
+
+// CS2风格的完整密度采样函数
+float GetSmokeDensityCS2(
+    float3 samplePos, 
+    SmokeVolume smoke, 
+    Texture3D smokeTex, SamplerState samplerSmoke,
+    Texture3D noiseTex, SamplerState samplerNoise,
+    float volumeSize, 
+    float time,
+    float noiseScale1,
+    float noiseScale2,
+    float noiseGamma,
+    float noiseBias,
+    float noiseColorA,
+    float noiseColorB,
+    float noiseBlendFactor,
+    float normalStrength1,
+    float normalStrength2,
+    float warpStrength,
+    float scrollSpeed,
+    float densityMultiplier,
+    float interpolationT,
+    out float3 finalNormal
+)
+{
+    // ========== 1. 采样基础密度场 ==========
+    float3 rawUVW;
+    float4 smokeData = SampleSmokeDensity(
+        smokeTex, samplerSmoke,
+        samplePos, smoke.position, smoke.volumeIndex,
+        volumeSize, VOXEL_RESOLUTION, ATLAS_DEPTH, VOXEL_RESOLUTION, rawUVW
+    );
+    
+    float baseDensity = lerp(smokeData.x, smokeData.y, interpolationT);
+    if (baseDensity <= 0.001)
+    {
+        finalNormal = float3(0, 0, 1);
+        return 0.0;
+    }
+    
+    // ========== 2. CS2风格坐标变换 ==========
+    float3 localUVW = rawUVW - 0.5;  // [-0.5, 0.5]
+    float3 scaledCoord = localUVW * 7.0;  // [-3.5, 3.5]
+    
+    float timeVal = time * scrollSpeed;
+    
+    // 2.1 基于时间和高度的旋转角度
+    float rotAngle = (timeVal * 0.04) + 
+        ((0.2 + (sin(scaledCoord.z * 5.0) + 0.5) * 0.15) * 
+         sin(timeVal * 0.5 + 0.5) * 
+         sin(timeVal * 0.187 + 0.5)) * 0.2;
+    
+    // 2.2 XY平面旋转
+    float s = sin(rotAngle);
+    float c = cos(rotAngle);
+    float2 rotatedXY = float2(
+        scaledCoord.x * c - scaledCoord.y * s,
+        scaledCoord.x * s + scaledCoord.y * c
+    );
+    scaledCoord.x = rotatedXY.x;
+    scaledCoord.y = rotatedXY.y;
+    
+    // 2.3 正弦波扰动
+    float timePhase = timeVal + sin(timeVal * 0.5) * 0.02;
+    scaledCoord.x += sin(timePhase + scaledCoord.z * 2.7) * 0.05;
+    scaledCoord.z += cos(timePhase + scaledCoord.x * 2.7) * 0.05;
+    scaledCoord.z += (sin(scaledCoord.x * 3.0 + timeVal * 0.35) + 
+                      sin(scaledCoord.y * 2.84 + timeVal * 0.235)) * 0.05;
+    
+    // ========== 3. 第一层噪声采样 ==========
+    float3 layer1Coord = scaledCoord * noiseScale1;
+    float3 timeOffset = float3(2.0, 2.0, 4.5) * (timeVal * 0.1);
+    
+    // 法线偏移方向（简化版，你可以用viewMatrix变换）
+    float3 offsetX = float3(0.2, 0.0, 0.0);
+    float3 offsetY = float3(0.0, 0.2, 0.0);
+    
+    // 中心点采样
+    float4 noise1Center = SampleNoiseCS2(noiseTex, samplerNoise, layer1Coord, timeOffset,
+                                          noiseGamma, noiseColorA, noiseColorB, noiseBlendFactor);
+    float density1 = ExtractDensity(noise1Center);
+    
+    // X偏移采样
+    float4 noise1X = SampleNoiseCS2(noiseTex, samplerNoise, layer1Coord + offsetX, timeOffset,
+                                     noiseGamma, noiseColorA, noiseColorB, noiseBlendFactor);
+    float density1X = ExtractDensity(noise1X);
+    
+    // Y偏移采样
+    float4 noise1Y = SampleNoiseCS2(noiseTex, samplerNoise, layer1Coord + offsetY, timeOffset,
+                                     noiseGamma, noiseColorA, noiseColorB, noiseBlendFactor);
+    float density1Y = ExtractDensity(noise1Y);
+    
+    // 第一层法线
+    float normalZ = 0.8 / noiseScale1;
+    float3 normal1 = normalize(float3(
+        density1 - density1X,
+        density1 - density1Y,
+        normalZ
+    ));
+    
+    // ========== 4. 坐标扭曲（用第一层结果影响第二层） ==========
+    float3 layer2Coord = scaledCoord;
+    
+    // 法线驱动的偏移
+    float3 normalOffset = (normal1 + float3(0, 0, 1)) * pow(density1, 0.1) * warpStrength * 0.2;
+    layer2Coord += normalOffset;
+    
+    // 密度驱动的膨胀
+    float3 expansionOffset = float3(2.0, 2.0, 4.5) * ((density1 - 1.0) * 0.2 * warpStrength * localUVW.z);
+    layer2Coord += expansionOffset;
+    
+    // 额外的Z扰动
+    layer2Coord.x += sin(scaledCoord.z + timeVal * 0.25) * 0.05;
+    
+    // 应用第二层缩放
+    layer2Coord *= noiseScale2;
+    
+    // ========== 5. 第二层噪声采样 ==========
+    // 第二层不减去时间偏移（使用不同的动画模式）
+    float4 noise2Center = SampleNoiseCS2(noiseTex, samplerNoise, layer2Coord, float3(0,0,0),
+                                          noiseGamma, noiseColorA, noiseColorB, noiseBlendFactor);
+    float density2 = ExtractDensity(noise2Center);
+    
+    float4 noise2X = SampleNoiseCS2(noiseTex, samplerNoise, layer2Coord + offsetX, float3(0,0,0),
+                                     noiseGamma, noiseColorA, noiseColorB, noiseBlendFactor);
+    float density2X = ExtractDensity(noise2X);
+    
+    float4 noise2Y = SampleNoiseCS2(noiseTex, samplerNoise, layer2Coord + offsetY, float3(0,0,0),
+                                     noiseGamma, noiseColorA, noiseColorB, noiseBlendFactor);
+    float density2Y = ExtractDensity(noise2Y);
+    
+    // 第二层法线
+    float3 normal2 = normalize(float3(
+        density2 - density2X,
+        density2 - density2Y,
+        normalZ
+    ));
+    
+    // ========== 6. 混合法线 ==========
+    finalNormal = normalize(
+        normal1 * normalStrength1 + 
+        normal2 * normalStrength2 * lerp(0.5, 1.0, saturate(density1 - 0.5)) +
+        float3(0, 0, 1)
+    );
+    
+    // ========== 7. CS2风格的密度混合（侵蚀） ==========
+    // 视角因子（简化版）
+    float viewFactor = 0.5;
+    
+    // 双层噪声贡献
+    float noiseContribution = 
+        lerp(0.95, saturate(density1), normalStrength1) +
+        lerp(0.95, saturate(density2), viewFactor * 0.25) +
+        noiseBias;
+    
+    // CS2的核心侵蚀公式
+    float erodedDensity = lerp(
+        baseDensity - (1.0 - noiseContribution),  // 边缘：减法侵蚀
+        baseDensity + noiseContribution,           // 核心：加法增强
+        baseDensity                                // 以原始密度为权重
+    );
+    
+    // 强度调制
+    erodedDensity *= saturate(smoke.intensity * 8.0);
+    
+    // ========== 8. 最终输出 ==========
+    return saturate(erodedDensity * densityMultiplier);
+}
+
+float GetSmokeDensityWithGradientCS2(
+    float gradientOffset,
+    float3 worldPos, 
+    SmokeVolume smoke,
+    Texture3D smokeTex, 
+    SamplerState smokeSampler,
+    Texture3D noiseTex, 
+    SamplerState noiseSampler,
+    float volumeSize, 
+    float time,
+    float noiseScale1,
+    float noiseScale2,
+    float noiseGamma,
+    float noiseBias,
+    float noiseColorA,
+    float noiseColorB,
+    float noiseBlendFactor,
+    float normalStrength1,
+    float normalStrength2,
+    float warpStrength,
+    float scrollSpeed,
+    float densityMult,
+    float interpolationT,
+    out float3 baseUVW,
+    out float3 densityGradient
+)
+{
+    float3 noiseNormal;
+    
+    float finalDensity = GetSmokeDensityCS2(
+        worldPos, smoke, 
+        smokeTex, smokeSampler,
+        noiseTex, noiseSampler,
+        volumeSize, time,
+        noiseScale1, noiseScale2,
+        noiseGamma, noiseBias,
+        noiseColorA, noiseColorB, noiseBlendFactor,
+        normalStrength1, normalStrength2,
+        warpStrength, scrollSpeed,
+        densityMult, interpolationT,
+        noiseNormal
+    );
+
+    float3 localPos = worldPos - smoke.position;
+    baseUVW = (localPos / volumeSize) + 0.5;
+    
+    // 直接使用噪声计算的法线，而不是重新采样
+    densityGradient = noiseNormal;
+    
+    return finalDensity;
+}
+
 #endif

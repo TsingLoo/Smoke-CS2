@@ -338,10 +338,7 @@ public class VolumetricSmokeSimulation : MonoBehaviour
             float distToTop = maxY - node.pos.y;
             float verticalMask = 1.0f;
             
-            if (distToTop >= 0)
-            {
-                verticalMask= Mathf.SmoothStep(0f, 1f, distToTop / (heightSpan * 0.25f + 0.01f));
-            }
+            verticalMask= Mathf.SmoothStep(0f, 1f, distToTop / (heightSpan * 0.25f + 0.01f));
             
             //verticalMask= Mathf.SmoothStep(0f, 1f, distToTop / (heightSpan * 0.25f + 0.01f));
             precomputedDensities[i] = baseDensity * verticalMask;

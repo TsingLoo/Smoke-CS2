@@ -58,7 +58,7 @@ Material:
     m_Ints:
     - _MaxSteps: 2000
     m_Floats:
-    - _AmbientStrength: 0
+    - _AmbientStrength: 0.01
     - _AnimationSpeed: 0.44
     - _AnimationTimeScale: 1
     - _Anisotropy: 0
@@ -75,21 +75,21 @@ Material:
     - _DensityContrast: 1.5
     - _DensityFalloff: 0.5
     - _DensityLightingInfluence: 0.584
-    - _DensityMultiplier: 3.46
+    - _DensityMultiplier: 0.84
     - _DensityThreshold: 0.01
     - _DepthFade: 0
     - _DetailNoiseScale: 0.03
-    - _DetailNoiseSpeed: 0.7
-    - _DetailNoiseStrength: 2.55
-    - _DetailNoiseUVWScale: 0.88
-    - _DiffusePower: 0.5
+    - _DetailNoiseSpeed: -9.38
+    - _DetailNoiseStrength: 6.27
+    - _DetailNoiseUVWScale: 39.09
+    - _DiffusePower: 0.35
     - _DitherDistance: 0.06
     - _DitherStrength: 40.24
     - _DitherTransitionDistance: 150
     - _EmissionEnabled: 3.17
     - _EmissionFalloff: 54.87
     - _EmissionStrength: 0.46
-    - _ExtinctionScale: 5.38
+    - _ExtinctionScale: 10
     - _FalloffEnd: 0.726
     - _FalloffPower: 0.8
     - _FalloffStart: 0.048
@@ -97,38 +97,49 @@ Material:
     - _GradientOffset: 0.85
     - _HeightAttenuationPower: 0.68
     - _HeightAttenuationStrength: -0.57
-    - _HeightLightingPower: 4.49
+    - _HeightLightingPower: 12.12
     - _LUTStrength: 0.5
     - _LightPenetrationDepth: 0.17
-    - _LightingBoost: 2.49
+    - _LightingBoost: 18.37
     - _LightingMixFactor: 0.877
+    - _NoiseBias: -1.15
+    - _NoiseBlendFactor: 0.93
+    - _NoiseColorA: 1.37
+    - _NoiseColorB: 2.5
     - _NoiseExponent: 1.55
     - _NoiseFrequency1: -5.51
     - _NoiseFrequency2: 22.42
+    - _NoiseGamma: 0.87
     - _NoiseMixParam: 0.785
     - _NoiseNormalStrength: 0.5
     - _NoiseScale: 0
+    - _NoiseScale1: 4.26
+    - _NoiseScale2: 3.59
     - _NoiseSpeed: 20
     - _NoiseStrength: 0
     - _NoiseWeight1: 3.52
     - _NoiseWeight2: 33.64
     - _NormalBlendFactor: 0.5
     - _NormalPerturbStrength: 0.5
+    - _NormalStrength1: -0.11
+    - _NormalStrength2: 1.81
     - _NormalZScale: 1.94
     - _PenetrationFalloffPower: -0.09
-    - _PhaseStrength: 5.03
+    - _PhaseStrength: 7
     - _RaymarchingStepSize: 0.04
     - _RotationSpeed: 0.82
     - _RotationStrength: 1
-    - _Saturation: -6.09
+    - _Saturation: 1.89
+    - _ScrollSpeed: 2.1
     - _ShadowHardness: 0.58
     - _ShadowOffsetScale: 2.8
     - _SmokeHardness: 6.38
-    - _SpecularPower: 0.83
+    - _SpecularPower: 0.76
     - _SphericalFalloffEnabled: 0.25
     - _SunHighlightStrength: 219.8
     - _TimeScale: 1.75
     - _UseLUT: 0
+    - _WarpStrength: 0.78
     - _WaveAmplitude: 6.3
     - _WaveFrequency: -1.31
     - _WaveStrength: 0.37

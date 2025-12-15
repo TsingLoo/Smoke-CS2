@@ -11,12 +11,6 @@ Shader "Unlit/SmokeRaymarching"
         _DitherStrength("Dither Strength", Float) = 1.0
         _DitherDistance("Dither Distance", Float) = 150.0
         
-        
-        [Header(Detail Noise Setting)]
-        _DetailNoiseStrength ("Detail Noise Strength", Float) = 0.88
-        _DetailNoiseUVWScale ("Detail Noise Scale", Float) = 5155.0
-        _DetailNoiseSpeed ("Detail Noise Speed", Float) = 0.62
-        
         [Header(Lighting and Color)]
         _Anisotropy ("Anisotropy", Range(-1, 1)) = 1.0
         _AmbientStrength ("Ambient Strength", Float) = 1.0
@@ -30,7 +24,6 @@ Shader "Unlit/SmokeRaymarching"
         _LightingBoost("Lighting Boost", Float) = 0.5
         
         [Header(Directional Lighting)]
-        _GradientOffset("Gradient Offset", Float) = 0.02
         _DiffusePower("Diffuse Power", Float) = 1.5
         _SpecularPower("Specular Power", Float) = 3.0
         _ContrastPower("Contrast Power", Range(1, 3)) = 1.5
@@ -41,6 +34,21 @@ Shader "Unlit/SmokeRaymarching"
         _BlueNoiseTex2D ("Blue Noise 2D Texture", 2D) = "" {}
         _HighFreqNoise ("High Freq Noise 3D Texture", 3D) = "" {}
         _ColorLUT3d ("ColorLUT 3D Texture", 3D) = "" {}
+        
+        [Header(CS2 Style Noise)]
+        _NoiseScale1 ("Layer 1 Scale", Float) = 1.0
+        _NoiseScale2 ("Layer 2 Scale", Float) = 0.8
+        _NoiseGamma ("Noise Gamma", Float) = 1.0
+        _NoiseBias ("Noise Bias", Float) = 0.0
+        _NoiseColorA ("Noise Color A", Float) = 0.5
+        _NoiseColorB ("Noise Color B", Float) = 1.0
+        _NoiseBlendFactor ("Noise Blend Factor", Float) = 0.0
+        _NormalStrength1 ("Normal Strength Layer1", Float) = 0.5
+        _NormalStrength2 ("Normal Strength Layer2", Float) = 0.3
+        _WarpStrength ("Warp Strength", Float) = 0.2
+        _ScrollSpeed ("Scroll Speed", Float) = 0.1
+        
+        _GradientOffset("Gradient Offset", Float) = 0.02
     }
     SubShader
     {
@@ -92,9 +100,6 @@ Shader "Unlit/SmokeRaymarching"
             
             CBUFFER_START(UnityPerMaterial)
                 float _DitherStrength;
-                float _DetailNoiseStrength;
-                float _DetailNoiseUVWScale;
-                float _DetailNoiseSpeed;
                 float _Anisotropy;
                 float _AmbientStrength;
                 float _PhaseStrength;
@@ -111,6 +116,18 @@ Shader "Unlit/SmokeRaymarching"
                 float _RaymarchingStepSize;
                 float _DitherTransitionDistance;
                 float _HeightLightingPower;
+
+                float _NoiseScale1;
+                float _NoiseScale2;
+                float _NoiseGamma;
+                float _NoiseBias;
+                float _NoiseColorA;
+                float _NoiseColorB;
+                float _NoiseBlendFactor;
+                float _NormalStrength1;
+                float _NormalStrength2;
+                float _WarpStrength;
+                float _ScrollSpeed;
             CBUFFER_END
 
             CBUFFER_START(CameraParams)
@@ -320,12 +337,27 @@ Shader "Unlit/SmokeRaymarching"
                         float3 baseUVW;
                         float3 densityGradient;
 
-                        float densityOfThisStep = GetSmokeDensityWithGradient(_GradientOffset,
+                        // float densityOfThisStep = GetSmokeDensityWithGradient(_GradientOffset,
+                        //     currentWorldPos, smoke, 
+                        //     _SmokeTex3D, sampler_SmokeTex3D, 
+                        //     _HighFreqNoise, sampler_HighFreqNoise, 
+                        //     _VolumeSize, _Time.y, 
+                        //     _DetailNoiseSpeed, _DetailNoiseUVWScale, _DetailNoiseStrength, _DensityMultiplier, _SmokeInterpolationT,
+                        //     baseUVW, densityGradient
+                        // );
+
+                        float densityOfThisStep = GetSmokeDensityWithGradientCS2(
+                            _GradientOffset,
                             currentWorldPos, smoke, 
                             _SmokeTex3D, sampler_SmokeTex3D, 
                             _HighFreqNoise, sampler_HighFreqNoise, 
                             _VolumeSize, _Time.y, 
-                            _DetailNoiseSpeed, _DetailNoiseUVWScale, _DetailNoiseStrength, _DensityMultiplier, _SmokeInterpolationT,
+                            _NoiseScale1, _NoiseScale2,
+                            _NoiseGamma, _NoiseBias,
+                            _NoiseColorA, _NoiseColorB, _NoiseBlendFactor,
+                            _NormalStrength1, _NormalStrength2,
+                            _WarpStrength, _ScrollSpeed,
+                            _DensityMultiplier, _SmokeInterpolationT,
                             baseUVW, densityGradient
                         );
 

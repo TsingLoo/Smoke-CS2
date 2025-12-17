@@ -37,7 +37,35 @@ Shader "Unlit/SmokeMask"
                 float4 positionCS : SV_POSITION;
             };
 
-            StructuredBuffer<SmokeVolume> _SmokeVolumes;
+            CBUFFER_START(_SceneVolumeUniforms)
+                
+                // [修复] 移除 Matrix16x4，直接声明 float4 数组
+                float4 volumeMinBounds[16];          // offset 0
+                float4 volumeMaxBounds[16];          // offset 256
+                float4 volumeCenters[16];            // offset 512
+                float4 volumeAnimState[16];          // offset 768
+                float4 volumeTintColor[16];          // offset 1024
+                float4 volumeFadeParams[16];         // offset 1280
+                
+                float4 sceneAABBMin;                 // offset 1536
+                float4 sceneAABBMax;                 // offset 1552
+                
+                float4 bulletTracerStarts[16];       // offset 1568
+                float4 bulletTracerEnds[16];         // offset 1824
+                float4 tracerInfluenceParams[16];    // offset 2080
+                
+                // [修复] Array5x4 -> float4[5]
+                float4 explosionPositions[5];        // offset 2336
+                
+                // [修复] Array2x4 -> float4[2]
+                float4 volumeTracerMasks[2];         // offset 2416
+                
+                uint activeTracerCount;              // 2448
+                float animationTime;                 // 2452
+                uint enableExplosions;               // 2456
+                
+            CBUFFER_END
+            
             int _SmokeCount;
             Texture3D _SmokeTex3D;
             SamplerState sampler_SmokeTex3D;
@@ -100,19 +128,24 @@ Shader "Unlit/SmokeMask"
                 // iterate through smokes
                 for (int i = 0; i < _SmokeCount; i++)
                 {
-                    SmokeVolume smoke = _SmokeVolumes[i];
-                    if (smoke.volumeIndex < 0) continue;
+                    //SmokeVolume smoke = _SmokeVolumes[i];
+                    float3 aabbMin = volumeMinBounds[i].xyz;
+                    float3 aabbMax = volumeMaxBounds[i].xyz;
 
+                    int slotIndex = volumeAnimState[i].z;
+                    
+                    if (slotIndex < 0) continue;
                     float tMin, tMax;
                     if (AABBIntersect(
-                        smoke.aabbMin,
-                        smoke.aabbMax,
+                        aabbMin,
+                        aabbMax,
                         cameraPos,
                         rayDir,
                         tMin,
                         tMax
                     ))
                     {
+                        //return float4(1,1,1,1);
                         //return 1;
                         float rayStart = max(0.0, tMin);
                         if (rayStart >= maxDist) 
@@ -121,6 +154,8 @@ Shader "Unlit/SmokeMask"
                         float3 startPos = cameraPos + rayDir * rayStart;
 
                         float maxTraverseDist = min(tMax, maxDist) - rayStart;
+
+                        float pos = volumeCenters[i].xyz;
                         
                         if (TraverseVoxels(
                             _SmokeTex3D,
@@ -128,8 +163,8 @@ Shader "Unlit/SmokeMask"
                             startPos,
                             rayDir,
                             maxTraverseDist,
-                            smoke.position,
-                            smoke.volumeIndex,
+                            pos,
+                            slotIndex,
                             _VolumeSize,
                             VOXEL_RESOLUTION,
                             ATLAS_DEPTH,
@@ -145,8 +180,7 @@ Shader "Unlit/SmokeMask"
                 if (smokeMask == 0)
                     discard;  // this fragment is not in smoke
 
-
-                //return float4(1,1,1,1);
+                // return float4(1,1,1,1);
                 return smokeMask;
             }
             ENDHLSL

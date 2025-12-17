@@ -10,6 +10,22 @@ static const float MAX_SMOKE_COUNT = 16.0;
 static const float ATLAS_DEPTH = VOXEL_RESOLUTION * MAX_SMOKE_COUNT;
 static const float ATLAS_DEPTH_INV = 1.0f / ATLAS_DEPTH;
 
+struct Matrix4x4 {
+    float4 rows[4];
+};
+
+struct Matrix16x4 {
+    float4 rows[16];
+};
+
+struct Array5x4 {
+    float4 data[5];
+};
+
+struct Array2x4 {
+    float4 data[2];
+};
+
 struct BulletHoleData
 {
     float4 startPosAndIntensity;

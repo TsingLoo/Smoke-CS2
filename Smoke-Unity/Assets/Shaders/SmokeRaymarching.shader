@@ -2,53 +2,63 @@ Shader "Unlit/SmokeRaymarching"
 {
     Properties
     {
-        [Header(Raymarching)]
-        
-        _MaxSteps ("Max Step", Integer)= 200
-        _RaymarchingStepSize("Step Size", float) = 0
-     
-        [Header(Noise Settings)]
-        _DitherStrength("Dither Strength", Float) = 1.0
-        _DitherDistance("Dither Distance", Float) = 150.0
-        
-        [Header(Lighting and Color)]
-        _Anisotropy ("Anisotropy", Range(-1, 1)) = 1.0
-        _AmbientStrength ("Ambient Strength", Float) = 1.0
-        _PhaseStrength ("Phase Strength", Float) = 1.0
-        _ColorBoost ("Color Boost", Float) = 1.0
-        _Saturation ("Saturation", Float) = 1.0
-        _DensityMultiplier ("Density Multiplier", Float) = 14.84
-        
-        [Header(Density Enhancement)]
-        _ExtinctionScale("Extinction Scale", Range(1, 10)) = 3.0
-        _LightingBoost("Lighting Boost", Float) = 0.5
-        
-        [Header(Directional Lighting)]
-        _DiffusePower("Diffuse Power", Float) = 1.5
-        _SpecularPower("Specular Power", Float) = 3.0
-        _ContrastPower("Contrast Power", Range(1, 3)) = 1.5
-        
-        [Header(Height Based Lighting)]
-        _HeightLightingPower("Height Lighting Power", Float) = 2.0
-        
-        _BlueNoiseTex2D ("Blue Noise 2D Texture", 2D) = "" {}
-        _HighFreqNoise ("High Freq Noise 3D Texture", 3D) = "" {}
-        _ColorLUT3d ("ColorLUT 3D Texture", 3D) = "" {}
-        
-        [Header(CS2 Style Noise)]
-        _NoiseScale1 ("Layer 1 Scale", Float) = 1.0
-        _NoiseScale2 ("Layer 2 Scale", Float) = 0.8
-        _NoiseGamma ("Noise Gamma", Float) = 1.0
-        _NoiseBias ("Noise Bias", Float) = 0.0
-        _NoiseColorA ("Noise Color A", Float) = 0.5
-        _NoiseColorB ("Noise Color B", Float) = 1.0
-        _NoiseBlendFactor ("Noise Blend Factor", Float) = 0.0
-        _NormalStrength1 ("Normal Strength Layer1", Float) = 0.5
-        _NormalStrength2 ("Normal Strength Layer2", Float) = 0.3
-        _WarpStrength ("Warp Strength", Float) = 0.2
-        _ScrollSpeed ("Scroll Speed", Float) = 0.1
-        
-        _GradientOffset("Gradient Offset", Float) = 0.02
+        // ========================================================
+        // 基础 Raymarching 设置 (Basic Settings)
+        // ========================================================
+        [Header(Raymarching Core)]
+        _BaseStepSize ("Base Step Size", Float) = 1.0
+        _RayMarchStepScale ("Step Scale Multiplier", Range(0.1, 5.0)) = 1.0
+        _TemporalJitterAmount ("Temporal Jitter", Range(0.0, 1.0)) = 0.5
+        [IntRange] _ResolutionDivisor ("Resolution Divisor", Range(1, 8)) = 1
+
+        // ========================================================
+        // 光照与材质 (Lighting & Material)
+        // ========================================================
+        [Header(Lighting and Material)]
+        _DirectLightIntensity ("Direct Light Intensity", Float) = 1.0
+        _AmbientLight ("Ambient Light", Range(0.0, 2.0)) = 0.1
+
+        _AbsorptionCoeff ("Absorption Coeff", Range(0.0, 10.0)) = 0.5
+        _ScatteringCoeff ("Scattering Coeff", Range(0.0, 10.0)) = 1.0
+        _PhaseFunction ("Phase Function (Anisotropy)", Range(-0.99, 0.99)) = 0.5
+        _DensityScale ("Global Density Scale", Float) = 1.0
+
+        // ========================================================
+        // 云形状与覆盖 (Cloud Shape)
+        // ========================================================
+        [Header(Cloud Shape)]
+        _CloudDensity ("Cloud Density", Range(0.0, 5.0)) = 1.0
+        _CloudCoverage ("Cloud Coverage", Range(0.0, 1.0)) = 0.5
+        _CloudErosion ("Cloud Erosion", Range(0.0, 1.0)) = 0.3
+        _CloudTopHeight ("Cloud Top Height", Float) = 100.0
+
+        // ========================================================
+        // 噪声控制 (Noise Settings)
+        // ========================================================
+        [Header(Noise Controls)]
+        _BaseNoiseScale ("Base Noise Scale", Float) = 1.0
+        _DetailNoiseScale ("Detail Noise Scale", Float) = 2.0
+        _MicroDetailScale ("Micro Detail Scale", Float) = 4.0
+
+        _NoiseWeight ("Noise Weight", Range(0.0, 1.0)) = 0.5
+        _MicroDetailWeight ("Micro Detail Weight", Range(0.0, 1.0)) = 0.25
+        _DetailStrength ("Detail Strength", Range(0.0, 2.0)) = 1.0
+
+        // ========================================================
+        // 动画与环境 (Animation & Env)
+        // ========================================================
+        [Header(Environment and Animation)]
+        _WindOffset ("Wind Offset (XYZ)", Vector) = (0,0,0,0)
+        _AnimationSpeed ("Animation Speed", Float) = 1.0
+
+        _FogAmount ("Fog Amount", Range(0.0, 1.0)) = 0.1
+        _FogStartDistance ("Fog Start Distance", Float) = 10.0
+
+        // ========================================================
+        // 调试 (Debug)
+        // ========================================================
+        [Header(Debug)]
+        [Enum(None,0, Steps,1, Density,2, Normals,3)] _DebugRenderMode ("Debug Render Mode", Int) = 0
     }
     SubShader
     {
@@ -97,6 +107,34 @@ Shader "Unlit/SmokeRaymarching"
             Texture2D _SmokeMask;          SamplerState sampler_SmokeMask;
             Texture3D _HighFreqNoise;      SamplerState sampler_HighFreqNoise;
             Texture3D _ColorLUT3D;         SamplerState sampler_ColorLUT3D;
+
+            CBUFFER_START(UnityPerMaterial) // 或者使用 RenderSettingsUniforms
+                float _TemporalJitterAmount;
+                float _RayMarchStepScale;
+                float _DensityScale;
+                float _AbsorptionCoeff;
+                float _ScatteringCoeff;
+                float _PhaseFunction;
+                float _AmbientLight;
+                float _DirectLightIntensity;
+                float _BaseNoiseScale;
+                float _DetailNoiseScale;
+                float _NoiseWeight;
+                float _MicroDetailScale;
+                float _MicroDetailWeight;
+                float _CloudErosion;
+                float _CloudDensity;
+                float _CloudCoverage;
+                float _CloudTopHeight;
+                float _BaseStepSize;
+                float _DetailStrength; // 对应之前的 fogFadeDistance 位置
+                int   _DebugRenderMode;
+                float3 _WindOffset;    // 注意：Properties里是Vector(4D)，这里取float3即可
+                float _FogAmount;
+                float _FogStartDistance;
+                float _AnimationSpeed;
+                int   _ResolutionDivisor;
+            CBUFFER_END
             
             CBUFFER_START(UnityPerMaterial)
                 float _DitherStrength;
@@ -169,7 +207,7 @@ Shader "Unlit/SmokeRaymarching"
                 return output;
             }
 
-            FragmentOutput  frag (v2f input) : SV_Target
+            FragmentOutput frag (v2f input) : SV_Target
             {
                 FragmentOutput output;
                 output.OpticalDepth = 0.0;
@@ -186,6 +224,9 @@ Shader "Unlit/SmokeRaymarching"
                 //if no smoke is hit by this fragment,discard
                 if (rawSmokeMask == 0)
                     discard;
+
+                output.SmokeColor = float4(1.0,1.0,1.0,1.0);
+                return output;
 
                 //temp array to record which smokes are hit by this ray
                 ActiveSmoke activeSmokes[16];

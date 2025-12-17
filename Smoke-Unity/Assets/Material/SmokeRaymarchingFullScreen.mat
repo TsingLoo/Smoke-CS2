@@ -58,33 +58,45 @@ Material:
     m_Ints:
     - _MaxSteps: 2000
     m_Floats:
+    - _AbsorptionCoeff: 0.5
+    - _AmbientLight: 0.1
     - _AmbientStrength: 0.01
     - _AnimationSpeed: 0.44
     - _AnimationTimeScale: 1
-    - _Anisotropy: 0
+    - _Anisotropy: 1
     - _BaseBrightness: -0.39
+    - _BaseNoiseScale: 1
+    - _BaseStepSize: 1
     - _BlendFactor: 0
-    - _ColorBoost: 0
+    - _CloudCoverage: 0.5
+    - _CloudDensity: 1
+    - _CloudErosion: 0.3
+    - _CloudTopHeight: 100
+    - _ColorBoost: 2.58
     - _ColorMixHigh: 0.8
     - _ColorMixLow: 0.3
     - _ColorParam1: 0.3
     - _ColorParam2: 0.8
-    - _ContrastPower: 1
+    - _ContrastPower: 3
     - _CoreDensityBoost: 1.5
+    - _DebugRenderMode: 0
     - _DeformStrength: 2.58
     - _DensityContrast: 1.5
     - _DensityFalloff: 0.5
     - _DensityLightingInfluence: 0.584
-    - _DensityMultiplier: 0.84
+    - _DensityMultiplier: 0.99
+    - _DensityScale: 1
     - _DensityThreshold: 0.01
     - _DepthFade: 0
     - _DetailNoiseScale: 0.03
     - _DetailNoiseSpeed: -9.38
     - _DetailNoiseStrength: 6.27
     - _DetailNoiseUVWScale: 39.09
+    - _DetailStrength: 1
     - _DiffusePower: 0.35
-    - _DitherDistance: 0.06
-    - _DitherStrength: 40.24
+    - _DirectLightIntensity: 1
+    - _DitherDistance: 0.5
+    - _DitherStrength: 1.5
     - _DitherTransitionDistance: 150
     - _EmissionEnabled: 3.17
     - _EmissionFalloff: 54.87
@@ -94,55 +106,66 @@ Material:
     - _FalloffPower: 0.8
     - _FalloffStart: 0.048
     - _FinalColorMultiplier: 1.12
-    - _GradientOffset: 0.85
+    - _FogAmount: 0.1
+    - _FogStartDistance: 10
+    - _GradientOffset: -5.7
     - _HeightAttenuationPower: 0.68
     - _HeightAttenuationStrength: -0.57
-    - _HeightLightingPower: 12.12
+    - _HeightLightingPower: 11.18
     - _LUTStrength: 0.5
     - _LightPenetrationDepth: 0.17
     - _LightingBoost: 18.37
     - _LightingMixFactor: 0.877
-    - _NoiseBias: -1.15
+    - _MicroDetailScale: 4
+    - _MicroDetailWeight: 0.25
+    - _NoiseBias: 15.84
     - _NoiseBlendFactor: 0.93
-    - _NoiseColorA: 1.37
+    - _NoiseColorA: 12.93
     - _NoiseColorB: 2.5
     - _NoiseExponent: 1.55
     - _NoiseFrequency1: -5.51
     - _NoiseFrequency2: 22.42
-    - _NoiseGamma: 0.87
+    - _NoiseGamma: 1.13
     - _NoiseMixParam: 0.785
     - _NoiseNormalStrength: 0.5
     - _NoiseScale: 0
-    - _NoiseScale1: 4.26
-    - _NoiseScale2: 3.59
+    - _NoiseScale1: 4.66
+    - _NoiseScale2: 3.7
     - _NoiseSpeed: 20
     - _NoiseStrength: 0
+    - _NoiseWeight: 0.43
     - _NoiseWeight1: 3.52
     - _NoiseWeight2: 33.64
     - _NormalBlendFactor: 0.5
     - _NormalPerturbStrength: 0.5
-    - _NormalStrength1: -0.11
-    - _NormalStrength2: 1.81
+    - _NormalStrength1: 9.65
+    - _NormalStrength2: -17.92
     - _NormalZScale: 1.94
     - _PenetrationFalloffPower: -0.09
-    - _PhaseStrength: 7
-    - _RaymarchingStepSize: 0.04
+    - _PhaseFunction: 0.5
+    - _PhaseStrength: 1.4
+    - _RayMarchStepScale: 1
+    - _RaymarchingStepSize: 0.02
+    - _ResolutionDivisor: 1
     - _RotationSpeed: 0.82
     - _RotationStrength: 1
     - _Saturation: 1.89
-    - _ScrollSpeed: 2.1
+    - _ScatteringCoeff: 1
+    - _ScrollSpeed: 5.51
     - _ShadowHardness: 0.58
     - _ShadowOffsetScale: 2.8
     - _SmokeHardness: 6.38
-    - _SpecularPower: 0.76
+    - _SpecularPower: 2.59
     - _SphericalFalloffEnabled: 0.25
     - _SunHighlightStrength: 219.8
+    - _TemporalJitterAmount: 0.5
     - _TimeScale: 1.75
     - _UseLUT: 0
-    - _WarpStrength: 0.78
+    - _WarpStrength: 4.1
     - _WaveAmplitude: 6.3
     - _WaveFrequency: -1.31
     - _WaveStrength: 0.37
     - _ZStretch: 2
-    m_Colors: []
+    m_Colors:
+    - _WindOffset: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []

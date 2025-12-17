@@ -1,6 +1,5 @@
 using System;
 using UnityEngine;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 #if UNITY_EDITOR
@@ -29,6 +28,36 @@ public class SmokeVolumeManager : MonoBehaviour
         public float intensity;       
     }
     
+    struct SceneVolumeUniforms
+    {
+        public Matrix16x4 volumeMinBounds;
+        public Matrix16x4 volumeMaxBounds;
+        public Matrix16x4 volumeCenters;
+        /// <summary>
+        /// .x: Height, .y: AnimBlend, .z: SlotIndex 
+        /// </summary>
+        public Matrix16x4 volumeAnimState;
+        /// <summary>
+        /// .rgb: Tint Color
+        /// </summary>
+        public Matrix16x4 volumeTintColor; 
+        /// <summary>
+        /// .x: Density, .z: Saturation/Age, .w: HeightFade
+        /// </summary>
+        public Matrix16x4 volumeFadeParams;
+        public Vector4  sceneAABBMin;
+        public Vector4  sceneAABBMax;
+        public Matrix16x4 bulletTracerStarts;
+        public Matrix16x4 bulletTracerEnds;
+        public Matrix16x4 tracerInfluenceParams;
+        public Array5x4 explosionPositions;
+        public Array2x4 volumeTracerMasks;
+        public uint activeTracerCount;
+        public float animationTime;
+        public uint enableExplosions;
+        public float padding;
+    }
+
     // ===== Inspector 配置 =====
     [Header("References")]
     public Material smokeMaskMaterial; 
@@ -51,6 +80,11 @@ public class SmokeVolumeManager : MonoBehaviour
     private byte[] atlasDataCPU;           // 对应 Texture3D 的实际数据 (RGBA)
     private ComputeBuffer metadataBuffer;  
     private SmokeVolumeData[] metadataArray;
+
+    //we actually upload buffer to GPu
+    private ComputeBuffer sceneUniformBuffer;
+    private SceneVolumeUniforms cpuData;
+    private SceneVolumeUniforms[] dataArray;
     
     private class SlotInfo { public bool active; public Vector3 pos; public Vector3 size; }
     private SlotInfo[] slots = new SlotInfo[MAX_SMOKE_COUNT];
@@ -72,6 +106,9 @@ public class SmokeVolumeManager : MonoBehaviour
     private static readonly int _SmokeTex3D = Shader.PropertyToID("_SmokeTex3D");
     private static readonly int _VolumeSize = Shader.PropertyToID("_VolumeSize");
 
+    private static readonly int _SceneVolumeUniforms = Shader.PropertyToID(nameof(_SceneVolumeUniforms)); 
+    
+
     void Awake()
     {
         Instance = this;
@@ -80,6 +117,14 @@ public class SmokeVolumeManager : MonoBehaviour
 
     private void Start()
     {
+        sceneUniformBuffer = new ComputeBuffer(1, 2464, ComputeBufferType.Constant);
+
+        dataArray = new SceneVolumeUniforms[1];
+        cpuData = dataArray[0];
+        cpuData.sceneAABBMin = new Vector4(-100, -100, -100, 1);
+        cpuData.sceneAABBMax = new Vector4(100, 100, 100, 1);
+        
+        
         Shader.SetGlobalFloat(_VolumeSize, GRID_WORLD_SIZE);
         lastUploadTime = Time.time;
     }
@@ -88,6 +133,7 @@ public class SmokeVolumeManager : MonoBehaviour
     {
         if (metadataBuffer != null) metadataBuffer.Release();
         if (smokeAtlas != null) Destroy(smokeAtlas);
+        if (sceneUniformBuffer != null) sceneUniformBuffer.Release();
     }
 
     void InitializeSystem()
@@ -165,22 +211,33 @@ public class SmokeVolumeManager : MonoBehaviour
     {
         if (slotIndex < 0 || slotIndex >= MAX_SMOKE_COUNT) return;
         
-        slots[slotIndex].pos = pos;
-        slots[slotIndex].size = size;
+        // slots[slotIndex].pos = pos;
+        // slots[slotIndex].size = size;
 
-        metadataArray[slotIndex] = new SmokeVolumeData
-        {
-            position = pos,
-            volumeIndex = slotIndex,
-            aabbMin = pos - size * 0.5f,
-            padding1 = 0,
-            aabbMax = pos + size * 0.5f,
-            padding2 = 0,
-            tint = new Vector3(tint.r, tint.g, tint.b),
-            intensity = intensity
-        };
+        cpuData.volumeMinBounds[slotIndex] = pos - size * 0.5f;
+        cpuData.volumeMaxBounds[slotIndex] = pos + size * 0.5f;
+        cpuData.volumeCenters[slotIndex] = pos;
+        cpuData.volumeAnimState[slotIndex] = new Vector4(2.0f, 0.5f, slotIndex, 0.0f); 
+        cpuData.volumeTintColor[slotIndex] = tint;
+        cpuData.volumeFadeParams[slotIndex] = new Vector4(1.0f, 0.5f, 0.5f, 0.0f);
+        
+        // metadataArray[slotIndex] = new SmokeVolumeData
+        // {
+        //     position = pos,
+        //     volumeIndex = slotIndex,
+        //     aabbMin = pos - size * 0.5f,
+        //     padding1 = 0,
+        //     aabbMax = pos + size * 0.5f,
+        //     padding2 = 0,
+        //     tint = new Vector3(tint.r, tint.g, tint.b),
+        //     intensity = intensity
+        // };
 
         isMetadataDirty = true;
+    }
+
+    public void WriteBulletMetaData()
+    {
     }
 
     private void ClearSlotData(int slotIndex)
@@ -208,7 +265,13 @@ public class SmokeVolumeManager : MonoBehaviour
             UploadMetadata();
             isMetadataDirty = false;
         }
+        dataArray[0] = cpuData;
+        sceneUniformBuffer.SetData(dataArray);
+        
+        Shader.SetGlobalConstantBuffer(nameof(_SceneVolumeUniforms), sceneUniformBuffer, 0, 2464);
     }
+    
+
 
     void LateUpdate()
     {

@@ -57,6 +57,7 @@ class SmokeMaskPass : ScriptableRenderPass
                 cam.farClipPlane
             ));
             cmd.SetGlobalVector("_CameraForward", cam.transform.forward);
+            cmd.SetGlobalVector("_CameraUp", cam.transform.up);
             cmd.SetGlobalVector("_CameraRight", cam.transform.right);
             cmd.SetGlobalFloat("_CameraNearPlane", cam.nearClipPlane);
             cmd.SetGlobalFloat("_CameraFarPlane", cam.farClipPlane);

@@ -83,54 +83,76 @@ float PhaseHG(float cosTheta, float g)
     return (1.0 - g2) / (4.0 * 3.14159265 * pow(1.0 + g2 - 2.0 * g * cosTheta, 1.5));
 }
 
-float3 RGBtoHSV(float3 rgb)
+float3 EnhanceColorSaturation(float3 inputColor, float boostAmount = 1.1f)
 {
-    float maxVal = max(rgb.r, max(rgb.g, rgb.b));
-    float minVal = min(rgb.r, min(rgb.g, rgb.b));
-    float delta = maxVal - minVal;
-                
-    float3 hsv = float3(0, 0, maxVal);
-                
-    if (delta != 0.0)
+    float colorR = inputColor.r;
+    float colorG = inputColor.g;
+    float colorB = inputColor.b;
+    
+    float maxChannel = max(colorR, max(colorG, colorB));
+    float minChannel = min(colorR, min(colorG, colorB));
+    float chroma = maxChannel - minChannel;
+    
+    float3 hsvColor = float3(0.0, 0.0, 0.0);
+    hsvColor.z = maxChannel; // Value
+    
+    if (chroma != 0.0)
     {
-        hsv.y = delta / maxVal;
-                    
-        float3 deltas = (maxVal.xxx - rgb) / delta;
-        float3 offset = deltas.xyz - deltas.zxy;
-        float2 hueOffset = offset.xy + float2(2.0, 4.0);
-                    
-        if (rgb.r >= maxVal)
-            hsv.x = offset.z;
-        else if (rgb.g >= maxVal)
-            hsv.x = hueOffset.x;
-        else
-            hsv.x = hueOffset.y;
-                    
-        hsv.x = frac(hsv.x / 6.0);
+        float saturation = chroma / maxChannel;
+        float3 chromaInv = (float3(maxChannel, maxChannel, maxChannel) - inputColor) / chroma;
+        float3 hueCalc = chromaInv.xyz - chromaInv.zxy;
+        
+        float3 hueSelect;
+        if (colorR >= maxChannel) {
+            hueSelect = float3(hueCalc.z, saturation, maxChannel);
+        } else if (colorG >= maxChannel) {
+            hueSelect = float3(hueCalc.x + 2.0, saturation, maxChannel);
+        } else {
+            hueSelect = float3(hueCalc.y + 4.0, saturation, maxChannel);
+        }
+        
+        hsvColor.x = frac(hueSelect.x * 0.166666667); // Hue
+        hsvColor.y = saturation;
     }
-                
-    return hsv;
-}
-
-float3 HSVtoRGB(float3 hsv)
-{
-    if (hsv.y == 0.0)
-        return hsv.zzz;
-                
-    float hue = hsv.x * 6.0;
-    float sector = floor(hue);
-    float fract = hue - sector;
-                
-    float p = hsv.z * (1.0 - hsv.y);
-    float q = hsv.z * (1.0 - hsv.y * fract);
-    float t = hsv.z * (1.0 - hsv.y * (1.0 - fract));
-                
-    if (sector == 0.0)      return float3(hsv.z, t, p);
-    else if (sector == 1.0) return float3(q, hsv.z, p);
-    else if (sector == 2.0) return float3(p, hsv.z, t);
-    else if (sector == 3.0) return float3(p, q, hsv.z);
-    else if (sector == 4.0) return float3(t, p, hsv.z);
-    else                    return float3(hsv.z, p, q);
+    
+    // 增强饱和度 (传入 boostAmount，原代码是 1.1)
+    float enhancedSaturation = saturate(hsvColor.y * boostAmount);
+    
+    // HSV -> RGB转换
+    float3 finalRGB;
+    
+    if (enhancedSaturation != 0.0)
+    {
+        float hue6 = hsvColor.x * 6.0;
+        float hueFloor = floor(hue6);
+        float hueFract = hue6 - hueFloor;
+        
+        float val = hsvColor.z;
+        float p = val * (1.0 - enhancedSaturation);
+        float q = val * (1.0 - (enhancedSaturation * hueFract));
+        float t = val * (1.0 - (enhancedSaturation * (1.0 - hueFract)));
+        
+        // 这里的 if-else 链在 GPU 上效率一般，但为了还原你的逻辑保留原样
+        if (hueFloor == 0.0) {
+            finalRGB = float3(val, t, p);
+        } else if (hueFloor == 1.0) {
+            finalRGB = float3(q, val, p);
+        } else if (hueFloor == 2.0) {
+            finalRGB = float3(p, val, t);
+        } else if (hueFloor == 3.0) {
+            finalRGB = float3(p, q, val);
+        } else if (hueFloor == 4.0) {
+            finalRGB = float3(t, p, val);
+        } else {
+            finalRGB = float3(val, p, q);
+        }
+    }
+    else
+    {
+        finalRGB = float3(hsvColor.z, hsvColor.z, hsvColor.z);
+    }
+    
+    return finalRGB;
 }
 
 float SampleLayeredNoise(Texture3D noiseTex3D, SamplerState noiseSampler, float noiseScale, float detailNoiseScale, float3 worldPos, float time, float noiseSpeed)
@@ -157,32 +179,32 @@ float SampleLayeredNoise(Texture3D noiseTex3D, SamplerState noiseSampler, float 
     return (noise1 + noise2) * 0.5;
 }
 
-float3 SampleColorLUT(Texture3D colorLUT3D, SamplerState colorLUT3DSampler, float atlasTextureWidth, float atlasSliceWidth, float saturation, float colorBoost, float3 normalizedPos, float density, uint volumeIndex)
-{
-    // Clamp position to valid range
-    float3 lutCoord = clamp(normalizedPos, 0.03, 0.97);
-                
-    // Add volume index offset (CS2 uses atlas texture)
-    float atlasOffset = volumeIndex * atlasSliceWidth;
-    lutCoord.x = (atlasOffset + lutCoord.x * 32.0) * (1.0 / atlasTextureWidth);
-                
-    // Sample color LUT
-    float4 colorSample = colorLUT3D.SampleLevel(colorLUT3DSampler, lutCoord, 0);
-                
-    // Convert to HSV for manipulation
-    float3 hsv = RGBtoHSV(colorSample.rgb);
-                
-    // Adjust saturation based on density
-    hsv.y = clamp(hsv.y * saturation, 0.0, 1.0);
-                
-    // Convert back to RGB
-    float3 color = HSVtoRGB(hsv);
-                
-    // Normalize and boost
-    color = normalize(color + 0.001) * min(length(color), 4.0);
-                
-    return color * colorBoost;
-}
+// float3 SampleColorLUT(Texture3D colorLUT3D, SamplerState colorLUT3DSampler, float atlasTextureWidth, float atlasSliceWidth, float saturation, float colorBoost, float3 normalizedPos, float density, uint volumeIndex)
+// {
+//     // Clamp position to valid range
+//     float3 lutCoord = clamp(normalizedPos, 0.03, 0.97);
+//                 
+//     // Add volume index offset (CS2 uses atlas texture)
+//     float atlasOffset = volumeIndex * atlasSliceWidth;
+//     lutCoord.x = (atlasOffset + lutCoord.x * 32.0) * (1.0 / atlasTextureWidth);
+//                 
+//     // Sample color LUT
+//     float4 colorSample = colorLUT3D.SampleLevel(colorLUT3DSampler, lutCoord, 0);
+//                 
+//     // Convert to HSV for manipulation
+//     float3 hsv = RGBtoHSV(colorSample.rgb);
+//                 
+//     // Adjust saturation based on density
+//     hsv.y = clamp(hsv.y * saturation, 0.0, 1.0);
+//                 
+//     // Convert back to RGB
+//     float3 color = HSVtoRGB(hsv);
+//                 
+//     // Normalize and boost
+//     color = normalize(color + 0.001) * min(length(color), 4.0);
+//                 
+//     return color * colorBoost;
+// }
 
 ///
 /// @brief Ray–AABB intersection test using the slab method.
@@ -907,6 +929,34 @@ float GetSmokeDensityWithGradientCS2(
     densityGradient = noiseNormal;
     
     return finalDensity;
+}
+
+/// 
+/// @return the origin is a corner
+float3 GetVolumeUVW(float3 sampleWorldPos, float3 volumeCenterWorldPos, out float3 volumeLocalPos)
+{
+    float3 offset = sampleWorldPos - volumeCenterWorldPos;
+    
+    float3 uvw = (offset / VOXEL_WORLD_SIZE) + 0.5;
+    
+    volumeLocalPos = uvw * VOXEL_RESOLUTION;
+    
+    return uvw;
+}
+
+float4 SampleSmokeTexture(float3 sampleUVW, Texture3D tex, SamplerState texSampler, int slotIndex, float volumeBlend, out float sampledDensityMin, out float sampledDensityMax)
+{
+    float densityUOffset = VOXEL_RESOLUTION * slotIndex;
+    sampleUVW.z = (densityUOffset + (sampleUVW.z * VOXEL_RESOLUTION)) * ATLAS_DEPTH_INV ;
+    
+    float4 densityLookup = tex.SampleLevel(texSampler, sampleUVW, 0);
+    float2 densityMinMax = lerp(densityLookup.xz, densityLookup.yw, float2(volumeBlend, volumeBlend));
+    sampledDensityMin = densityMinMax.x;
+    sampledDensityMax = densityMinMax.y;
+    //return float4(sampleUVW.x , sampleUVW.y , sampleUVW.z , 1.0f);
+    return SampleSmokeAtUVW(tex, texSampler, sampleUVW, 0, VOXEL_RESOLUTION, ATLAS_DEPTH, ATLAS_DEPTH_INV );
+    
+    return densityLookup;
 }
 
 #endif

@@ -58,8 +58,8 @@ Material:
     m_Ints:
     - _MaxSteps: 2000
     m_Floats:
-    - _AbsorptionCoeff: 0.5
-    - _AmbientLight: 0.1
+    - _AbsorptionCoeff: 0.72
+    - _AmbientLight: 0.06
     - _AmbientStrength: 0.01
     - _AnimationSpeed: 0.44
     - _AnimationTimeScale: 1
@@ -68,9 +68,9 @@ Material:
     - _BaseNoiseScale: 1
     - _BaseStepSize: 1
     - _BlendFactor: 0
-    - _CloudCoverage: 0.5
-    - _CloudDensity: 1
-    - _CloudErosion: 0.3
+    - _CloudCoverage: 0.446
+    - _CloudDensity: 2.3
+    - _CloudErosion: 0.349
     - _CloudTopHeight: 100
     - _ColorBoost: 2.58
     - _ColorMixHigh: 0.8
@@ -92,7 +92,7 @@ Material:
     - _DetailNoiseSpeed: -9.38
     - _DetailNoiseStrength: 6.27
     - _DetailNoiseUVWScale: 39.09
-    - _DetailStrength: 1
+    - _DetailStrength: 0.84
     - _DiffusePower: 0.35
     - _DirectLightIntensity: 1
     - _DitherDistance: 0.5
@@ -106,7 +106,7 @@ Material:
     - _FalloffPower: 0.8
     - _FalloffStart: 0.048
     - _FinalColorMultiplier: 1.12
-    - _FogAmount: 0.1
+    - _FogAmount: 0.064
     - _FogStartDistance: 10
     - _GradientOffset: -5.7
     - _HeightAttenuationPower: 0.68
@@ -133,7 +133,7 @@ Material:
     - _NoiseScale2: 3.7
     - _NoiseSpeed: 20
     - _NoiseStrength: 0
-    - _NoiseWeight: 0.43
+    - _NoiseWeight: 0.387
     - _NoiseWeight1: 3.52
     - _NoiseWeight2: 33.64
     - _NormalBlendFactor: 0.5
@@ -142,15 +142,15 @@ Material:
     - _NormalStrength2: -17.92
     - _NormalZScale: 1.94
     - _PenetrationFalloffPower: -0.09
-    - _PhaseFunction: 0.5
+    - _PhaseFunction: 0.52
     - _PhaseStrength: 1.4
-    - _RayMarchStepScale: 1
+    - _RayMarchStepScale: 0.73
     - _RaymarchingStepSize: 0.02
     - _ResolutionDivisor: 1
     - _RotationSpeed: 0.82
     - _RotationStrength: 1
     - _Saturation: 1.89
-    - _ScatteringCoeff: 1
+    - _ScatteringCoeff: 0.7
     - _ScrollSpeed: 5.51
     - _ShadowHardness: 0.58
     - _ShadowOffsetScale: 2.8
@@ -158,7 +158,7 @@ Material:
     - _SpecularPower: 2.59
     - _SphericalFalloffEnabled: 0.25
     - _SunHighlightStrength: 219.8
-    - _TemporalJitterAmount: 0.5
+    - _TemporalJitterAmount: 0.107
     - _TimeScale: 1.75
     - _UseLUT: 0
     - _WarpStrength: 4.1

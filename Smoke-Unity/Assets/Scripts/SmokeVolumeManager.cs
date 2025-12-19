@@ -102,8 +102,8 @@ public class SmokeVolumeManager : MonoBehaviour
     // Shader属性ID缓存
     private static readonly int _InterpolationT = Shader.PropertyToID("_SmokeInterpolationT");
     private static readonly int _SmokeVolumes = Shader.PropertyToID("_SmokeVolumes");
-    private static readonly int _SmokeCount = Shader.PropertyToID("_SmokeCount");
-    private static readonly int _SmokeTex3D = Shader.PropertyToID("_SmokeTex3D");
+    private static readonly int _SmokeCount = Shader.PropertyToID(nameof(_SmokeCount));
+    private static readonly int _SmokeTex3D = Shader.PropertyToID(nameof(_SmokeTex3D));
     private static readonly int _VolumeSize = Shader.PropertyToID("_VolumeSize");
 
     private static readonly int _SceneVolumeUniforms = Shader.PropertyToID(nameof(_SceneVolumeUniforms)); 
@@ -113,17 +113,15 @@ public class SmokeVolumeManager : MonoBehaviour
     {
         Instance = this;
         InitializeSystem();
+        dataArray = new SceneVolumeUniforms[1];
+        sceneUniformBuffer = new ComputeBuffer(1, 2464, ComputeBufferType.Constant);
+        cpuData = new SceneVolumeUniforms();
     }
 
     private void Start()
     {
-        sceneUniformBuffer = new ComputeBuffer(1, 2464, ComputeBufferType.Constant);
-
-        dataArray = new SceneVolumeUniforms[1];
-        cpuData = dataArray[0];
         cpuData.sceneAABBMin = new Vector4(-100, -100, -100, 1);
         cpuData.sceneAABBMax = new Vector4(100, 100, 100, 1);
-        
         
         Shader.SetGlobalFloat(_VolumeSize, GRID_WORLD_SIZE);
         lastUploadTime = Time.time;
@@ -211,7 +209,7 @@ public class SmokeVolumeManager : MonoBehaviour
     {
         if (slotIndex < 0 || slotIndex >= MAX_SMOKE_COUNT) return;
         
-        // slots[slotIndex].pos = pos;
+        // slots[slotIndex].pos = pos; 
         // slots[slotIndex].size = size;
 
         cpuData.volumeMinBounds[slotIndex] = pos - size * 0.5f;
@@ -219,19 +217,7 @@ public class SmokeVolumeManager : MonoBehaviour
         cpuData.volumeCenters[slotIndex] = pos;
         cpuData.volumeAnimState[slotIndex] = new Vector4(2.0f, 0.5f, slotIndex, 0.0f); 
         cpuData.volumeTintColor[slotIndex] = tint;
-        cpuData.volumeFadeParams[slotIndex] = new Vector4(1.0f, 0.5f, 0.5f, 0.0f);
-        
-        // metadataArray[slotIndex] = new SmokeVolumeData
-        // {
-        //     position = pos,
-        //     volumeIndex = slotIndex,
-        //     aabbMin = pos - size * 0.5f,
-        //     padding1 = 0,
-        //     aabbMax = pos + size * 0.5f,
-        //     padding2 = 0,
-        //     tint = new Vector3(tint.r, tint.g, tint.b),
-        //     intensity = intensity
-        // };
+        cpuData.volumeFadeParams[slotIndex] = new Vector4(1.0f, 0.5f, 0.5f, 1.0f);
 
         isMetadataDirty = true;
     }
@@ -262,13 +248,9 @@ public class SmokeVolumeManager : MonoBehaviour
         
         if (isMetadataDirty)
         {
-            UploadMetadata();
+            SortAndUploadVolumes();
             isMetadataDirty = false;
         }
-        dataArray[0] = cpuData;
-        sceneUniformBuffer.SetData(dataArray);
-        
-        Shader.SetGlobalConstantBuffer(nameof(_SceneVolumeUniforms), sceneUniformBuffer, 0, 2464);
     }
     
 
@@ -348,29 +330,35 @@ public class SmokeVolumeManager : MonoBehaviour
         currentInterpolationT = 0f;
     }
 
-    void UploadMetadata()
+    void SortAndUploadVolumes()
     {
-        // 确保非活跃槽位数据清空
-        for (int i = 0; i < MAX_SMOKE_COUNT; i++)
-        {
-            if (!slots[i].active)
-            {
-                metadataArray[i].intensity = 0;
-                metadataArray[i].volumeIndex = -1;
-            }
-        }
-        metadataBuffer.SetData(metadataArray);
+        // // 确保非活跃槽位数据清空
+        // for (int i = 0; i < MAX_SMOKE_COUNT; i++)
+        // {
+        //     if (!slots[i].active)
+        //     {
+        //         metadataArray[i].intensity = 0;
+        //         metadataArray[i].volumeIndex = -1;
+        //     }
+        // }
+        // metadataBuffer.SetData(metadataArray);
 
-        if (smokeMaskMaterial != null)
-        {
-            smokeMaskMaterial.SetBuffer(_SmokeVolumes, metadataBuffer);
-            smokeMaskMaterial.SetInt(_SmokeCount, MAX_SMOKE_COUNT);
-            smokeMaskMaterial.SetTexture(_SmokeTex3D, smokeAtlas);
-        }
-    
-        Shader.SetGlobalBuffer(_SmokeVolumes, metadataBuffer);
+        // if (smokeMaskMaterial != null)
+        // {
+        //     //smokeMaskMaterial.SetBuffer(_SmokeVolumes, metadataBuffer);
+        //     smokeMaskMaterial.SetInt(_SmokeCount, MAX_SMOKE_COUNT);
+        //     smokeMaskMaterial.SetTexture(_SmokeTex3D, smokeAtlas);
+        // }
+        //
+        // Shader.SetGlobalBuffer(_SmokeVolumes, metadataBuffer);
         Shader.SetGlobalInt(_SmokeCount, MAX_SMOKE_COUNT);
         Shader.SetGlobalTexture(_SmokeTex3D, smokeAtlas);   
+        
+        
+        dataArray[0] = cpuData;
+        sceneUniformBuffer.SetData(dataArray);
+        
+        Shader.SetGlobalConstantBuffer(_SceneVolumeUniforms, sceneUniformBuffer, 0, 2464);
     }
     
     static float SmoothStep(float t)

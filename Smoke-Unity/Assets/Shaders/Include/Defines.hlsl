@@ -6,6 +6,9 @@
 #define HOLE_NOISE_SCROLL 0.5
 
 static const float VOXEL_RESOLUTION = 32.0;
+static const float VOXEL_RESOLUTION_INV = 1.0 / VOXEL_RESOLUTION;
+static const float VOXEL_WORLD_SIZE = 12.0;
+static const float VOXEL_WORLD_SIZE_INV = 1.0 / VOXEL_WORLD_SIZE;
 static const float MAX_SMOKE_COUNT = 16.0;
 static const float ATLAS_DEPTH = VOXEL_RESOLUTION * MAX_SMOKE_COUNT;
 static const float ATLAS_DEPTH_INV = 1.0f / ATLAS_DEPTH;
@@ -44,7 +47,7 @@ struct SmokeVolume
     float intensity;
 };
 
-struct ActiveSmoke
+struct VolumeBoxData
 {
     float tMin;
     float tMax;

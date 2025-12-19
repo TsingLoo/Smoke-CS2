@@ -38,31 +38,28 @@ Shader "Unlit/SmokeMask"
             };
 
             CBUFFER_START(_SceneVolumeUniforms)
+            
+                float4 volumeMinBounds[16];
+                float4 volumeMaxBounds[16];
+                float4 volumeCenters[16];
+                float4 volumeAnimState[16];
+                float4 volumeTintColor[16];
+                float4 volumeFadeParams[16];
                 
-                // [修复] 移除 Matrix16x4，直接声明 float4 数组
-                float4 volumeMinBounds[16];          // offset 0
-                float4 volumeMaxBounds[16];          // offset 256
-                float4 volumeCenters[16];            // offset 512
-                float4 volumeAnimState[16];          // offset 768
-                float4 volumeTintColor[16];          // offset 1024
-                float4 volumeFadeParams[16];         // offset 1280
+                float4 sceneAABBMin;
+                float4 sceneAABBMax;
                 
-                float4 sceneAABBMin;                 // offset 1536
-                float4 sceneAABBMax;                 // offset 1552
+                float4 bulletTracerStarts[16];
+                float4 bulletTracerEnds[16];
+                float4 tracerInfluenceParams[16];
+            
+                float4 explosionPositions[5];
+            
+                float4 volumeTracerMasks[2];
                 
-                float4 bulletTracerStarts[16];       // offset 1568
-                float4 bulletTracerEnds[16];         // offset 1824
-                float4 tracerInfluenceParams[16];    // offset 2080
-                
-                // [修复] Array5x4 -> float4[5]
-                float4 explosionPositions[5];        // offset 2336
-                
-                // [修复] Array2x4 -> float4[2]
-                float4 volumeTracerMasks[2];         // offset 2416
-                
-                uint activeTracerCount;              // 2448
-                float animationTime;                 // 2452
-                uint enableExplosions;               // 2456
+                uint activeTracerCount;
+                float animationTime;
+                uint enableExplosions;
                 
             CBUFFER_END
             
@@ -122,7 +119,7 @@ Shader "Unlit/SmokeMask"
                 float3 rayDir = normalize(worldPosition - cameraPos);
                 float maxDist = length(worldPosition - cameraPos);
 
-                //return float4(maxDist / 20.0, 0, 0, 1);
+                //return float4(_SmokeCount / 16.0, 0, 0, 1);
                 
                 uint smokeMask = 0;
                 // iterate through smokes
@@ -155,7 +152,7 @@ Shader "Unlit/SmokeMask"
 
                         float maxTraverseDist = min(tMax, maxDist) - rayStart;
 
-                        float pos = volumeCenters[i].xyz;
+                        float3 pos = volumeCenters[i].xyz;
                         
                         if (TraverseVoxels(
                             _SmokeTex3D,

@@ -1,0 +1,613 @@
+original,renamed,unity_source,description,category
+_3,unusedVec4,N/A,Unused global vector,Global Variable
+_1017,VolumeBoxData,VolumeBoxData,Volume box intersection data (tMin tMax index),Structure
+_1017._m0,boxData,{tMin tMax index},Volume box data vec4,Structure Member
+_2620,Matrix4x4,float4x4,4x4 matrix as array of 4 vec4,Structure
+_2620._m0,matrixRows,matrix rows,Matrix rows array,Structure Member
+_113,VolumeArray16,float4[16],Array of 16 vec4 for volume data,Structure
+_113._m0,volumeData,data array,Volume data array,Structure Member
+_239,PointArray5,float4[5],Array of 5 vec4 for points,Structure
+_239._m0,pointData,data array,Point data array,Structure Member
+_365,MaskArray2,float4[2],Array of 2 vec4 for masks,Structure
+_365._m0,maskData,data array,Mask data array,Structure Member
+_633_4459,CameraDataBlock,CameraParams,Camera parameters uniform buffer,Uniform Buffer
+_4459,cameraData,CameraParams instance,Camera data UBO instance,UBO Instance
+_4459._m0,invViewProjMatrix,_InvVP,Inverse view-projection matrix,UBO Member
+_4459._m1,projectionParams,proj params,Projection parameters (z=near scale w=offset),UBO Member
+_4459._m2,cameraPosition,_CameraPosition,Camera position in world space,UBO Member
+_4459._m3,depthNear,_CameraNearPlane,Near plane for depth reconstruction,UBO Member
+_4459._m4,cameraForward,_CameraForward,Camera forward direction vector,UBO Member
+_4459._m5,depthFar,_CameraFarPlane,Far plane for depth reconstruction,UBO Member
+_4459._m6,cameraRight,_CameraRight,Camera right vector,UBO Member
+_4459._m7,globalTime,_Time.y,Global animation time,UBO Member
+_754_4023,VolumeDataBlock,_SceneVolumeUniforms,Volume and scene data uniform buffer,Uniform Buffer
+_4023,volumeData,_SceneVolumeUniforms instance,Volume data UBO instance,UBO Instance
+_4023._m0,volumeMinBounds,volumeMinBounds,Minimum bounds of each volume (16 volumes),UBO Member
+_4023._m1,volumeMaxBounds,volumeMaxBounds,Maximum bounds of each volume,UBO Member
+_4023._m2,volumeCenters,volumeCenters,Center positions of volumes,UBO Member
+_4023._m3,volumeAnimState,volumeAnimState,Volume animation state (y=interp z=pageIdx),UBO Member
+_4023._m4,volumeTintColor,volumeTintColor,Volume tint colors,UBO Member
+_4023._m5,volumeFadeParams,volumeFadeParams,Volume fade parameters (x=density w=height),UBO Member
+_4023._m6,sceneAABBMin,sceneAABBMin,Scene axis-aligned bounding box minimum,UBO Member
+_4023._m7,sceneAABBMax,sceneAABBMax,Scene axis-aligned bounding box maximum,UBO Member
+_4023._m8,bulletTracerStarts,bulletTracerStarts,Bullet tracer line start positions,UBO Member
+_4023._m9,bulletTracerEnds,bulletTracerEnds,Bullet tracer line end positions,UBO Member
+_4023._m10,tracerInfluenceParams,tracerInfluenceParams,Tracer influence parameters,UBO Member
+_4023._m11,explosionPositions,explosionPositions,Explosion center positions (w=timestamp),UBO Member
+_4023._m12,volumeTracerMasks,volumeTracerMasks,Tracer channel assignment masks,UBO Member
+_4023._m13,activeTracerCount,activeTracerCount,Number of active bullet tracers,UBO Member
+_4023._m14,animationTime,animationTime,Animation time for effects,UBO Member
+_4023._m15,explosionCount,enableExplosions,Number of active explosions,UBO Member
+_2920_5618,RenderParamsBlock,UnityPerMaterial,Render parameters uniform buffer,Uniform Buffer
+_5618,renderParams,UnityPerMaterial instance,Render params UBO instance,UBO Instance
+_5618._m0,jitterScale,_TemporalJitterAmount,Temporal jitter scale,UBO Member
+_5618._m1,alphaScale,_RayMarchStepScale,Alpha/step scale multiplier,UBO Member
+_5618._m2,timeScale,_AnimationSpeed,Time scale for animations,UBO Member
+_5618._m3,noise1Influence,_AbsorptionCoeff,Primary noise influence weight,UBO Member
+_5618._m4,detailNoiseInfluence,_ScatteringCoeff,Detail noise influence,UBO Member
+_5618._m5,normalPerturbScale,_PhaseFunction,Normal perturbation scale,UBO Member
+_5618._m6,phaseBlend,_PhaseFunction,Phase function blend parameter,UBO Member
+_5618._m7,noiseOffset,_AmbientLight,Global noise offset / ambient,UBO Member
+_5618._m8,noise1Scale,_BaseNoiseScale,Primary noise scale,UBO Member
+_5618._m9,noise2Scale,_DetailNoiseScale,Detail/secondary noise scale,UBO Member
+_5618._m10,noisePower,_NoiseWeight,Noise power/gamma exponent,UBO Member
+_5618._m11,noiseColorA,_CloudDensity,First noise color parameter,UBO Member
+_5618._m12,noiseColorB,_CloudCoverage,Second noise color parameter,UBO Member
+_5618._m13,baseColorIntensity,_CloudDensity,Base color intensity,UBO Member
+_5618._m14,sunColorIntensity,_CloudCoverage,Sun/light color intensity,UBO Member
+_5618._m15,rimLightIntensity,_DirectLightIntensity,Rim lighting intensity,UBO Member
+_5618._m16,densityContrast,_CloudTopHeight,Density contrast adjustment,UBO Member
+_5618._m17,baseStepSize,_BaseStepSize,Ray marching step size,UBO Member
+_5618._m18,normalDetailScale,_DetailStrength,Normal detail/warp scale,UBO Member
+_5618._m19,enableSecondPass,second pass flag,Enable second pass flag (0 or 1),UBO Member
+_5618._m20,colorTint,_WindOffset,Color tint or wind offset vector,UBO Member
+_5618._m21,godrayIntensity,_FogAmount,God ray / fog intensity,UBO Member
+_5618._m22,godrayFalloffDist,_FogStartDistance,God ray falloff distance,UBO Member
+_5618._m23,noiseMixFactor,_AnimationSpeed,Noise mixing factor,UBO Member
+_5618._m24,depthDownscaleFactor,_ResolutionDivisor,Depth texture downscale factor,UBO Member
+_1030_5037,ScreenDataBlock,screen data,Screen-related data uniform buffer,Uniform Buffer
+_5037,screenData,screen data instance,Screen data UBO instance,UBO Instance
+_5037._m0,noiseTileSize,_BlueNoiseTex2D_TexelSize.zw,Blue noise texture tile size (ivec2),UBO Member
+_5037._m1,logDepthNear,log depth near,Logarithmic depth near plane,UBO Member
+_5037._m2,logDepthFar,log depth far,Logarithmic depth far plane,UBO Member
+_1080_5538,LightingDataBlock,main light data,Main light data uniform buffer,Uniform Buffer
+_5538,lightingData,main light,Lighting data UBO instance,UBO Instance
+_5538._m0,mainLightDirection,GetMainLight().direction,Main directional light direction,UBO Member
+_5538._m1,mainLightColor,GetMainLight().color,Main directional light color,UBO Member
+_5975,blueNoiseTexture,_BlueNoiseTex2D,Blue noise texture for dithering,Texture
+_4543,sceneDepthTexture,SampleSceneDepth,Scene depth texture,Texture
+_5967,secondaryDepthTexture,secondary depth,Secondary depth texture for occlusion,Texture
+_5481,volumeMaskTexture,_SmokeMask,Volume visibility mask texture,Texture
+_3482,volumeDensityTexture,_SmokeTex3D,3D volume density texture,Texture
+_4038,volumeSampler,sampler_SmokeTex3D,Sampler for volume textures,Sampler
+_3913,highFreqNoiseTexture,_HighFreqNoise,High frequency 3D noise texture,Texture
+_4258,noiseSampler,sampler_HighFreqNoise,Sampler for noise textures,Sampler
+_4426,colorLUTTexture,_ColorLUT3D,3D color lookup table texture,Texture
+_5514,inWorldViewDir,input.rayDirection,Input: World space view direction from vertex,Input
+_3711,outMoment0,output.OpticalDepth,Output: Moment 0 (optical depth),Output
+_3338,outMoment1,output.Moments,Output: Moment 1 (depth and depth^2),Output
+_3339,outMoment2,output.HigherMoments,Output: Higher moments (depth^3 through depth^6),Output
+_3340,outSmokeColor,output.SmokeColor,Output: Final smoke color and alpha,Output
+_3341,outDepthMinMax,output.DepthRange,Output: Depth range (near far),Output
+_3342,outTransmittance,output.alpha,Output: Transmittance/alpha value,Output
+_15861,rayDirection,rayDirection = normalize(worldPosition - _CameraPosition),World space ray direction (normalized),Main Variable
+_23296,invRayDirection,1.0 / rayDirection,Inverse ray direction for AABB tests,Ray Setup
+_8251,tToSceneMin,rayToSceneMin,Ray t-value to scene AABB minimum,AABB Test
+_6243,tToSceneMax,rayToSceneMax,Ray t-value to scene AABB maximum,AABB Test
+_7415,tMinPerAxis,min(tToSceneMax tToSceneMin),Near intersection per axis,AABB Test
+_13037,tMaxPerAxis,max(tToSceneMax tToSceneMin),Far intersection per axis,AABB Test
+_11253,tMinComponents,max(tMinPerAxis.xx tMinPerAxis.yz),Component-wise max for tMin,AABB Test
+_12676,rayEnterDistance,rayEnterDistance = max(max(tMinComponents.x tMinComponents.y)),Scene entry distance,AABB Test
+_16933,tMaxComponents,min(tMaxPerAxis.xx tMaxPerAxis.yz),Component-wise min for tMax,AABB Test
+_14150,rayExitDistance,rayExitDistance = min(min(tMaxComponents.x tMaxComponents.y)),Scene exit distance,AABB Test
+_3914,baseStepDistance,baseStepDistance = _BaseStepSize * 1.5,Ray marching step size,Step Setup
+_19617,fragCoord,int2(gl_FragCoord.xy),Fragment screen coordinate (ivec2),Screen Coord
+_25102,rayMarchStart,rayMarchStart = max(rayEnterDistance 4.0) + jitter,Ray march starting distance,Ray Setup
+_17338,screenCoord,int2(input.positionCS.xy),Screen pixel coordinate,Screen Coord
+_10955,depthRange,_CameraFarPlane - _CameraNearPlane,Depth range (far - near),Depth Calc
+_24159,linearSceneDepth,LinearEyeDepth(rawDepth _ZBufferParams),Linear scene depth,Depth Calc
+_15694,rayDotForward,dot(_CameraForward rayDirection),Ray dot camera forward,Depth Calc
+_19245,sceneDepthAlongRay,sceneDepthAlongRay = linearSceneDepth / rayDotForward,Scene depth projected along ray,Depth Calc
+_18051,negRayDirection,-rayDirection,Negative ray direction,Ray Setup
+_7391,backProjectedPoint,backProjectedPoint (surface pos),Surface position backprojected,Depth Calc
+_6681,hasExplosionLayer,enableExplosions > 0,Has active explosions flag,Explosion Check
+_12666,skipDueToOcclusion,occlusion check result,Is behind secondary depth surface,Occlusion Check
+_4364,rayMarchEnd,rayMarchEnd = sceneDepthAlongRay - 2.0,Clamped maximum ray distance,Ray Setup
+_5607,marchStartPos,marchStartWorldPos,Ray march start position in world space,Ray Setup
+_4987,marchEndPos,marchEndWorldPos,Ray march end position in world space,Ray Setup
+_19697,activeVolumeMask,rawSmokeMask = (uint)_SmokeMask.Load(),Bitmask of active volumes,Volume Mask
+_4249,bitmaskShifted,currentVolumeBit >> 1,Right-shifted volume bitmask,Volume Loop
+_15529,volumeIdxNext,volumeIndex + 1,Next volume index,Volume Loop
+_5767,activeVolumeBoxes,VolumeBoxData activeVolumeBoxes[1],Array of intersected volume boxes,Volume Array
+_6386,volumeCountTemp,activeVolumeCount + 1 (temp),Temporary volume count,Volume Loop
+_6864,activeVolumeCount,activeVolumeCount,Total number of intersected volumes,Volume Loop
+_13136,volumeIndex,volumeIndex,Current volume index in bitmask loop,Volume Loop
+_16324,arrayIndex,array insert index,Current index in intersection array,Volume Loop
+_17017,currentVolumeBit,currentVolumeBit,Remaining volume bitmask to process,Volume Loop
+_8252,tToVolumeMin,temp tMin calculation,Ray t to volume minimum,Volume AABB
+_6244,tToVolumeMax,temp tMax calculation,Ray t to volume maximum,Volume AABB
+_7416,volTMinPerAxis,min per axis,Volume tMin per axis,Volume AABB
+_13038,volTMaxPerAxis,max per axis,Volume tMax per axis,Volume AABB
+_11254,volTMinComp,component comparison,Volume tMin components,Volume AABB
+_16934,volTMaxComp,component comparison,Volume tMax components,Volume AABB
+_12756,finalGodrayAccum,accumulatedFogDensity (final),Final accumulated godray/fog,Final Output
+_13175,finalLastHitPos,lastValidSamplePos (final),Final last hit position,Final Output
+_14229,finalAccumColor,accumulatedColor (final),Final accumulated color and alpha,Final Output
+_16327,finalFirstHitPos,currentVolumePos (final),Final first hit position,Final Output
+_17192,finalSunlightAccum,accumulatedLightEnergy (final),Final accumulated sunlight,Final Output
+_20544,volumeBoxList,VolumeBoxData volumeBoxList[1],Local copy of volume boxes,Volume Array
+_7668,totalMarchDistance,totalMarchDistance = length(marchEndWorldPos - marchStartWorldPos),Total ray marching distance,March Setup
+_14823,maxStepCount,maxStepCount = clamp(ceil(totalMarchDistance / baseStepDistance) + 10),Maximum ray marching steps,March Setup
+_12127,validVolumeCount,validVolumeCount = min(activeVolumeCount 1),Number of valid volumes,March Setup
+_19298,cameraSideVector,cross(_CameraForward _CameraUp),Cross product of camera vectors,March Setup
+_14778,totalRayDistance,totalRayDistance = rayMarchStart + totalMarchDistance,Maximum ray t-value,March Setup
+_17018,currentVolumePos,currentVolumePos,Current volume position tracker,Main Loop State
+_17115,accumulatedColor,accumulatedColor = float4(0),Current accumulated color,Main Loop State
+_17117,accumulatedTracerDirection,accumulatedTracerDirection = float3(0 0 0.01),Current tracer direction,Main Loop State
+_17120,currentMarchPos,currentMarchPos = marchStartWorldPos,Current ray marching position,Main Loop State
+_17133,lastValidSamplePos,lastValidSamplePos = marchEndWorldPos,Last valid sample position,Main Loop State
+_20747,nextRayDistance,nextRayDistance = currentRayDistance + baseStepDistance,Next step ray distance,Main Loop Advance
+_22071,nextMarchPos,nextMarchPos = currentMarchPos + (rayDirection * baseStepDistance),Next step world position,Main Loop Advance
+_23989,nextStepIndex,stepIndex + 1,Next step index,Main Loop Advance
+_13155,loopLastHitTemp,temp last hit,Loop-level last hit (temp),Main Loop Temp
+_13156,loopLastHitPos,lastValidSamplePos (loop result),Loop last hit position,Main Loop Result
+_16306,hadPreviousSample,hadPreviousSample,Had previous valid sample flag,Main Loop State
+_16314,loopFirstHitTemp,temp first hit,Loop-level first hit (temp),Main Loop Temp
+_16315,loopFirstHitPos,currentVolumePos (loop result),Loop first hit position,Main Loop Result
+_16863,innerLoopBreak,innerLoopBreak,Inner loop early exit flag,Inner Loop Control
+_16864,foundOpaqueVolume,foundOpaqueVolume,Main loop early exit flag,Main Loop Control
+_17143,loopSunlight,stepLightEnergy (loop result),Loop sunlight result,Main Loop Result
+_17144,loopGodray,stepFogDensity (loop result),Loop godray result,Main Loop Result
+_17145,loopColor,stepColor (loop result),Loop color result,Main Loop Result
+_17147,loopTracerGlow,stepTracerGlow (loop result),Loop tracer glow result,Main Loop Result
+_17148,loopTracerDir,stepTracerDir (loop result),Loop tracer direction result,Main Loop Result
+_17149,loopCavityStr,stepCavityStrength (loop result),Loop cavity strength result,Main Loop Result
+_17150,loopHadPrevSample,hadPreviousSample (loop result),Loop had previous sample flag,Main Loop Result
+_17151,loopSunlightOut,accumulatedLightEnergy (loop out),Loop sunlight output,Main Loop Result
+_17152,loopTracerBits,tracerAnimationCounter (loop result),Loop tracer animation bits,Main Loop Result
+_17153,loopGodrayOut,accumulatedFogDensity (loop out),Loop godray output,Main Loop Result
+_17154,loopColorOut,accumulatedColor (loop out),Loop color output,Main Loop Result
+_17156,loopTracerGlowOut,accumulatedTracerGlow (loop out),Loop tracer glow output,Main Loop Result
+_17157,loopTracerDirOut,accumulatedTracerDirection (loop out),Loop tracer direction output,Main Loop Result
+_17158,loopCavityStrOut,cavity strength (loop out),Loop cavity strength output,Main Loop Result
+_17159,loopTracerBitsOut,tracerAnimationCounter (loop out),Loop tracer bits output,Main Loop Result
+_17160,loopRayTOut,currentRayDistance (loop out),Loop ray t output,Main Loop Result
+_13137,foundOpaqueFlag,foundOpaqueVolume,Found opaque volume flag,Main Loop State
+_16305,accumulatedLightEnergy,accumulatedLightEnergy = 0.0,Accumulated sunlight energy,Main Loop State
+_17114,accumulatedFogDensity,accumulatedFogDensity = 0.0,Accumulated fog/godray density,Main Loop State
+_17116,accumulatedTracerGlow,accumulatedTracerGlow = 0.0,Accumulated tracer glow,Main Loop State
+_17118,tracerCavityStrength,tracerCavityStrength (stored in z),Tracer cavity strength,Main Loop State
+_17119,tracerAnimationCounter,tracerAnimationCounter = 0,Tracer animation counter bits,Main Loop State
+_17121,currentRayDistance,currentRayDistance = rayMarchStart,Current ray distance,Main Loop State
+_17122,hasValidSample,hasValidSample = false,Has valid sample this step,Main Loop State
+_17123,stepIndex,stepIndex = 0,Current step index,Main Loop State
+_23149,shouldUpdateTracerAnim,shouldUpdateTracerAnim,Should refresh tracer cache,Cache Control
+_12501,cacheRefreshCheck,((stepIndex & 15) == 0) || (stepIndex < 16),Cache refresh condition,Cache Control
+_24117,tracerGlowIntensity,shouldUpdateTracerAnim ? 0.0 : accumulatedTracerGlow,Reset or keep tracer glow,Cache Control
+_17855,tracerCavityStrength,shouldUpdateTracerAnim ? 0.0 : accumulatedTracerDirection.z,Reset or keep cavity strength,Cache Control
+_14433,tracerAnimBits,shouldUpdateTracerAnim ? 0 : tracerAnimationCounter,Reset or keep animation bits,Cache Control
+_13138,samplePosition,samplePosition = lastValidSamplePos,Sample position for this step,Inner Loop State
+_17126,stepColor,stepColor = accumulatedColor,Step color accumulation,Inner Loop State
+_17128,stepTracerDir,stepTracerDir,Step tracer direction,Inner Loop State
+_8897,volumeCheckIdxNext,volumeCheckIndex + 1,Next volume check index,Volume Inner Loop
+_13154,samplePosUpdate,position update,Sample position update,Volume Inner Loop
+_14891,cavityStrUpdate,cavity update,Cavity strength update,Volume Inner Loop
+_16313,hadPrevSampleUpdate,flag update,Had previous sample update,Volume Inner Loop
+_17138,sunlightUpdate,sunlight update,Sunlight accumulation update,Volume Inner Loop
+_17139,godrayUpdate,godray update,Godray accumulation update,Volume Inner Loop
+_17140,colorUpdate,color update,Color accumulation update,Volume Inner Loop
+_17141,tracerGlowUpdate,glow update,Tracer glow update,Volume Inner Loop
+_17142,tracerDirUpdate,direction update,Tracer direction update,Volume Inner Loop
+_18361,tracerBitsUpdate,bits update,Tracer bits update,Volume Inner Loop
+_17019,volumeCheckIndex,volumeCheckIndex = 0,Volume check loop index,Volume Inner Loop
+_17124,stepLightEnergy,stepLightEnergy = accumulatedLightEnergy,Step sunlight energy,Volume Inner Loop
+_17125,stepFogDensity,stepFogDensity = accumulatedFogDensity,Step fog density,Volume Inner Loop
+_17127,stepTracerGlow,stepTracerGlow = tracerGlowIntensity,Step tracer glow,Volume Inner Loop
+_17129,stepCavityStrength,stepCavityStrength = tracerCavityStrength,Step cavity strength,Volume Inner Loop
+_17134,stepTracerBits,stepTracerBits = tracerAnimBits,Step tracer animation bits,Volume Inner Loop
+_7956_ladder_break,volumeLoopBreak,break flag,Volume loop ladder break,Control Flow
+_7688,tracerDirection,normalized tracer direction,Computed tracer wind direction,Tracer Calc
+_13141,updatedTracerBits,tracerBits after update,Updated tracer animation bits,Tracer Result
+_13618,updatedCavityStrength,cavity after update,Updated cavity strength,Tracer Result
+_16308,updatedTracerGlow,glow after update,Updated tracer glow intensity,Tracer Result
+_12885,skipTracerCalc,(activeTracerCount == 0) || (bits & 3) != 0,Skip tracer calculation flag,Tracer Control
+_13139,tracerGlowLoop,loop temp glow,Tracer glow in loop,Tracer Loop
+_16307,tracerDirLoop,loop temp direction,Tracer direction in loop,Tracer Loop
+_17135,cavityStrLoop,loop temp cavity,Cavity strength in loop,Tracer Loop
+_8087,tracerIdxNext,tracerIdx + 1,Next tracer index,Tracer Loop
+_13140,tracerDirResult,direction result,Tracer direction result,Tracer Loop
+_13189,cavityStrResult,cavity result,Cavity strength result,Tracer Loop
+_14382,tracerGlowResult,glow result,Tracer glow result,Tracer Loop
+_17020,tracerLoopIdx,tracer loop index,Tracer loop index,Tracer Loop
+_21554,tracerLineDir,bulletTracerEnds[i] - bulletTracerStarts[i],Tracer line direction,Tracer Calc
+_14636,posToTracerStart,currentMarchPos - bulletTracerStarts[i],Position to tracer start,Tracer Calc
+_19448,distToTracerLine,distance to line factor,Distance factor to tracer line,Tracer Calc
+_14626,tracerFadeInOut,fade calculation,Tracer fade in/out factor,Tracer Calc
+_6223,spotTracerGlow,spotlight glow,Spotlight tracer glow effect,Tracer Calc
+_18731,tracerWindInfluence,wind influence,Wind influence from tracer,Tracer Calc
+_10368,pointTracerGlow,point glow,Point tracer glow effect,Tracer Calc
+_25081,currentVolumeIdx,uint(volumeBoxList[volumeCheckIndex].index),Current volume ID being sampled,Volume Sampling
+_10669,hasValidSample,hasValidSample flag,Had valid density sample flag,Volume Sampling
+_13153,sampleSunlight,step sunlight,Sampled sunlight contribution,Volume Sampling
+_13637,sampleColor,step color,Sampled color contribution,Volume Sampling
+_16312,sampleGodray,step godray,Sampled godray contribution,Volume Sampling
+_25170,tracerOffsetSamplePos,currentMarchPos + (normalize(tracerDirection) * offset),Tracer-adjusted sample position,Volume Sampling
+_22666,volumeIdxInt,int(currentVolumeIdx),Volume ID as integer,Volume Sampling
+_14658,volumeLocalPos,GetVolumeUVW result,Normalized position in volume [0-1],Volume Sampling
+_21495,volumeUVW,clamped UVW,Volume texture UVW coordinates,Volume Sampling
+_14092,densityPageIdx,uint(volumeAnimState[idx].z),Density texture page/atlas index,Volume Sampling
+_24255,densityUOffset,34.0 * float(densityPageIdx),Atlas U-coordinate offset,Volume Sampling
+_11487,densitySample,SampleSmokeTexture result,Raw density texture sample,Volume Sampling
+_7714,densityChannels,mix(sample.xz sample.yw interpT),Mixed density channels,Volume Sampling
+_20593,sampledDensityMin,densityChannels.x,Minimum density value,Volume Sampling
+_6734,sampledDensityMax,densityChannels.y,Maximum density value,Volume Sampling
+_13144,densityVec4Temp,temp vec4,Density as vec4 (temp),Volume Sampling
+_8283,distanceToMarchEnd,distance(tracerOffsetSamplePos marchEndWorldPos),Distance to march end,Volume Sampling
+_18056,adjustedDensity,distance-adjusted density,Distance-adjusted density,Volume Sampling
+_11248,densityBlendTemp,temp blend,Density blend temp,Volume Sampling
+_6665,cavityDensity,clamp(lerp(adjustedDensity -0.05 cavityStrength)),Final cavity-affected density,Density Processing
+_17820,occlusionDistance,max(0 dist - min(20 abs(backProj.z - volCenter.z)*2)),Surface occlusion distance,Density Processing
+_20845,densityMultiplier,clamp((cavityDensity - 0.01) * 1.0101) * volumeFadeParams.x,Scaled density value,Density Processing
+_22281,finalScaledDensity,densityMultiplier + camera distance boost,Adjusted scaled density,Density Processing
+_6616,shadowTestPos,final sampling position,Shadow test position,Density Processing
+_13148,shadowMultiplier,dissipation/shadow multiplier,Shadow multiplier from dissipation,Dissipation
+_13694,effectiveDensity,finalScaledDensity * shadowMultiplier or * 0.02,Final effective density,Density Processing
+_16310,shadowAmount,dissipation effect,Shadow amount from dissipation,Dissipation
+_13142,dissipLoopPos,position in dissipation loop,Dissipation loop position,Dissipation Loop
+_16309,dissipAccum,dissipation accumulator,Dissipation effect accumulator,Dissipation Loop
+_17136,dissipScale,dissipation scale,Dissipation scale factor,Dissipation Loop
+_8896,dissipIdxNext,dissipation index + 1,Next dissipation index,Dissipation Loop
+_13147,dissipPosResult,position result,Dissipation position result,Dissipation Loop
+_14082,dissipScaleResult,scale result,Dissipation scale result,Dissipation Loop
+_18360,dissipAccumResult,accumulation result,Dissipation accumulation result,Dissipation Loop
+_17021,dissipLoopIdx,dissipation loop index,Dissipation loop index,Dissipation Loop
+_7957_ladder_break,dissipLoopBreak,break flag,Dissipation loop ladder break,Control Flow
+_10810,dissipationAge,animationTime - explosionPositions[i].w,Time since explosion,Dissipation Calc
+_13146,dissipPosInterim,interim position,Dissipation position interim,Dissipation Calc
+_16382,dissipScaleInterim,interim scale,Dissipation scale interim,Dissipation Calc
+_16480,dissipEffectInterim,interim effect,Dissipation effect interim,Dissipation Calc
+_13668,distToDissipPoint,distance(pos explosionPositions[i]),Distance to dissipation point,Dissipation Calc
+_13143,dissipPosInner,inner position,Dissipation position (inner),Dissipation Calc
+_16381,dissipScaleInner,inner scale,Dissipation scale (inner),Dissipation Calc
+_16479,dissipEffectInner,inner effect,Dissipation effect (inner),Dissipation Calc
+_16611,dissipationPulse,pow(1.0 - smoothstep(0 2 age) 128),Dissipation pulse effect,Dissipation Calc
+_13560,surfaceProximity,surface proximity calc,Surface proximity effect,Dissipation Calc
+_20017,animTime,_Time.y * _AnimationSpeed,Animation time for noise,Noise Generation
+_11675,volumeCenteredPos,volumeLocalPos - float3(0.5),Centered position [-0.5 to 0.5],Noise Generation
+_11772,noiseCoord,volumeCenteredPos * 7.0,Scaled noise coordinate,Noise Generation
+_11476,noiseZ,noiseCoord.z,Noise coordinate Z component,Noise Generation
+_9117,rotAngle1,animTime * 0.5,First rotation angle,Noise Generation
+_7385,rotOffset,animTime * 0.04 + oscillation,Rotation offset angle,Noise Generation
+_17167,sinRot,sin(rotOffset),Sine of rotation,Noise Generation
+_17391,cosRot,cos(rotOffset),Cosine of rotation,Noise Generation
+_23932,rotatedXY,mul(rotMat noiseCoord.xy),Rotated XY coordinates,Noise Generation
+_16176,rotatedX,rotatedXY.x,Rotated X coordinate,Noise Generation
+_21583,noisePosTemp,temp noise position,Noise position temp,Noise Generation
+_6688,rotatedY,rotatedXY.y,Rotated Y coordinate,Noise Generation
+_14459,waveTime,animTime + sin(rotAngle1) * 0.02,Wave animation time,Noise Generation
+_24074,waveOffset,sin/cos wave perturbation,Wave-perturbed XZ,Noise Generation
+_10133,perturbedX,waveOffset.x,Perturbed X after wave,Noise Generation
+_10752,perturbedZ,waveOffset.y,Perturbed Z after wave,Noise Generation
+_22420,noisePosPerturbed,perturbed noise position,Perturbed noise position,Noise Generation
+_8650,finalNoiseZ,perturbedZ + vertical wave,Final Z with vertical wave,Noise Generation
+_10824,baseNoiseCoord,noisePosPerturbed * _BaseNoiseScale,Base noise sampling coordinate,Noise Sampling
+_9985,timeOffset3D,float3(2 2 4.5) * (animTime * 0.1),3D time offset for noise,Noise Sampling
+_13915,camRightOffset,_CameraRight * 0.2,Camera right vector offset,Noise Sampling
+_13916,camUpOffset,cameraSideVector * 0.2,Camera up/side vector offset,Noise Sampling
+_16433,noisePowerVec,float4(_NoiseWeight),Noise power vector,Noise Sampling
+_21177,rawNoiseSample,_HighFreqNoise.SampleLevel(),Raw noise sample,Noise Sampling
+_6421,lowFreqParams,float4(_CloudDensity),Low frequency noise params,Noise Sampling
+_7260,highFreqParams,float4(_CloudCoverage),High frequency noise params,Noise Sampling
+_15547,noiseBlendParam,float4(_AnimationSpeed),Noise blend parameter,Noise Sampling
+_24109,baseNoiseProcessed,lerp(lerp(low high noise) lerp(0.25 -1.5 noise) blend),Processed base noise,Noise Sampling
+_11087,baseNoiseCombined,(processed.x + processed.y * 0.95) * 4.6,Combined base noise intensity,Noise Sampling
+_17262,noiseSampleX,sample with right offset,Noise sample for X gradient,Noise Sampling
+_19777,processedNoiseX,processed X gradient,Processed noise X,Noise Sampling
+_17263,noiseSampleY,sample with up offset,Noise sample for Y gradient,Noise Sampling
+_19778,processedNoiseY,processed Y gradient,Processed noise Y,Noise Sampling
+_20360,normalGradStep,0.8 / _BaseNoiseScale,Normal gradient step size,Normal Calculation
+_6512,noiseNormal,normalize(float3(base-Y.combined base-X.combined gradStep)),Noise-derived normal,Normal Calculation
+_21989,viewTransform,transpose of view matrix,Transposed view matrix,Transform
+_16360,centeredPosZ,volumeCenteredPos.z,Centered position Z,Detail Noise
+_20799,detailNoiseCoord,noiseCoord + viewSpaceOffset + zOffset,Detail noise coordinate,Detail Noise
+_19464,detailScaledCoord,detailNoiseCoord * _DetailNoiseScale,Scaled detail coordinate,Detail Noise
+_11130,detailNoiseSample,sample at detail coord,Detail noise sample,Detail Noise
+_19779,detailNoiseProcessed,processed detail noise,Processed detail noise,Detail Noise
+_11089,detailNoiseCombined,(processed.x + processed.y * 0.95) * 4.6,Combined detail noise,Detail Noise
+_17264,detailSampleX,sample with right offset,Detail sample X gradient,Detail Noise
+_19780,detailProcessedX,processed X,Detail processed X,Detail Noise
+_17265,detailSampleY,sample with up offset,Detail sample Y gradient,Detail Noise
+_19781,detailProcessedY,processed Y,Detail processed Y,Detail Noise
+_17671,depthFade,_ScatteringCoeff * (dot(ray forward) * dist),Depth-based fade factor,Lighting
+_13150,combinedNoise,lerp(0.95 base noise1) + lerp(0.95 detail depthFade*0.25) + ambient,Combined noise factor,Lighting
+_11621,heightFade,density after height shaping,Density with height fade,Density Shaping
+_14675,heightParam,clamp(volumeFadeParams.w 0.0001 0.9999),Clamped height parameter,Density Shaping
+_8419,fadeStart,smoothstep(0 0.8 heightParam),Height fade start,Density Shaping
+_14551,fadeEnd,smoothstep(0.2 1.0 heightParam),Height fade end,Density Shaping
+_12502,heightFadeResult,result of height fade,Height fade result,Density Shaping
+_23051,heightTestPos,vertically scaled centered pos,Height test position,Density Shaping
+_13439,stepDensity,lerp(heightFade - (1-noise) heightFade + noise heightFade) * scale,Final step density,Density Shaping
+_21940,baseNormalDir,normalize(volumeCenteredPos) * shadowMix,Base normal direction,Color Calculation
+_13055,normalTransform,viewTransform * combined normal,Transformed normal,Color Calculation
+_19632,viewSpaceNormal,normalTransform.xyz,View space normal,Color Calculation
+_16793,scatterUVW,clamped scatter lookup coord,Color scatter LUT UVW,Color Calculation
+_13568,scatterColor,_ColorLUT3D.SampleLevel(scatterUVW),Color LUT sample,Color Calculation
+_15561,sunDot,dot(phaseNormal sunDirection),Sun direction dot product,Lighting Calculation
+_8123,phaseFunction,pow(forward) + pow(back),Combined phase function,Lighting Calculation
+_11275,sunScattering,phaseFunction * scatterColor.w,Modulated sunlight,Lighting Calculation
+_16847,scatterR,scatterColor.x,Scatter color red channel,HSV Conversion
+_15573,scatterG,scatterColor.y,Scatter color green channel,HSV Conversion
+_21520,scatterB,scatterColor.z,Scatter color blue channel,HSV Conversion
+_16613,maxRGB,max(R max(G B)),Maximum RGB component,HSV Conversion
+_12972,colorRange,maxRGB - min(R min(G B)),Color range (chroma),HSV Conversion
+_6553,hsvTemp,temporary HSV,HSV temporary vector,HSV Conversion
+_20310,hsvColor,HSV representation,HSV color,HSV Conversion
+_20364,saturation,colorRange / maxRGB,Color saturation,HSV Conversion
+_18850,chromaDelta,(V - RGB) / range,Chroma delta for hue,HSV Conversion
+_18380,hueComponents,hue calculation,Hue components,HSV Conversion
+_10889,hueOffset,offset for hue,Hue offset values,HSV Conversion
+_20309,hsvResult,HSV calculation result,HSV result,HSV Conversion
+_12503,hsvBranch1,HSV branch 1,HSV branch result 1,HSV Conversion
+_11027,hsvFinal,fract(hue/6) saturation value,Final HSV,HSV Conversion
+_20352,adjustedSat,clamp(saturation * 1.1),Adjusted saturation,RGB Conversion
+_14327,finalRGB,RGB from HSV,Final RGB color,RGB Conversion
+_23216,hueAngle6,hue * 6.0,Hue angle times 6,RGB Conversion
+_10653,hueFloor,floor(hueAngle6),Floor of hue angle,RGB Conversion
+_19977,rgbDesaturated,value * (1 - sat),Desaturated RGB component,RGB Conversion
+_17993,hueFraction,hueAngle6 - floor,Fractional hue,RGB Conversion
+_10560,rgbInterp1,value * (1 - sat*frac),RGB interpolation 1,RGB Conversion
+_23319,rgbInterp2,value * (1 - sat*(1-frac)),RGB interpolation 2,RGB Conversion
+_12508,rgbFromHsv,RGB from hue sector,RGB from HSV,RGB Conversion
+_12507,rgbBranch1,RGB branch 1,RGB branch 1,RGB Conversion
+_12506,rgbBranch2,RGB branch 2,RGB branch 2,RGB Conversion
+_12505,rgbBranch3,RGB branch 3,RGB branch 3,RGB Conversion
+_12504,rgbBranch4,RGB branch 4,RGB branch 4,RGB Conversion
+_24091,litColor,base lit color,Base lit color before tint,Final Color
+_23772,volumeTintedColor,litColor * volumeTintColor,Volume-tinted color,Final Color
+_16436,desaturatedColor,lerp to preserve luminance,Desaturated/preserved color,Final Color
+_21313,shadowedColor,color * shadowMultiplier,Shadowed color,Final Color
+_22660,fogAmount,smoothstep fog calculation,Fog/godray contribution,Final Compositing
+_17656,stepAlpha,smoothstep alpha calculation,Step alpha contribution,Final Compositing
+_22501,stepContribution,float4(shadowed*alpha alpha),Color contribution for step,Accumulation
+_13152,sunAccumLoop,sunlight accumulation in loop,Sunlight integration loop,Accumulation Loop
+_16311,colorAccumLoop,color accumulation in loop,Color integration loop,Accumulation Loop
+_17022,sampleWeight,_BaseStepSize * 0.375,Sample weight for accumulation,Accumulation Loop
+_17137,fogAccumLoop,fog accumulation in loop,Fog integration loop,Accumulation Loop
+_11921,sunUpdated,sunAccum + sun,Updated sunlight,Accumulation Loop
+_19916,colorUpdated,colorAccum + contrib,Updated color,Accumulation Loop
+_23566,fogUpdated,fogAccum + fog,Updated fog,Accumulation Loop
+_25059,weightDecrement,sampleWeight - 1.0,Weight decrement,Accumulation Loop
+_21167,shouldRecordHit,hasValidSample && !hadPreviousSample,Should record first hit,Hit Recording
+_14400,firstHitUpdate,mix(old currentMarchPos shouldRecord),First hit position update,Hit Recording
+_23482,colorClamped,stepColor with w=1.0,Color with alpha clamped,Hit Recording
+_13174,sp2LastHit,second pass last hit,Second pass last hit,Second Pass
+_16326,sp2FirstHit,second pass first hit,Second pass first hit,Second Pass
+_16483,sp2Color,second pass color,Second pass color,Second Pass
+_17190,sp2Sunlight,second pass sunlight,Second pass sunlight,Second Pass
+_17191,sp2Godray,second pass godray,Second pass godray,Second Pass
+_13238,sp2StartT,currentRayDistance - baseStepDistance,Second pass start t,Second Pass
+_21812,sp2StartPos,marchStartPos + rayDir * totalDist,Second pass start position,Second Pass
+_13244,sp2RayLength,totalRayDistance - sp2StartT,Second pass ray length,Second Pass
+_17023,sp2CurrentPos,second pass position tracker,Second pass current position,Second Pass Loop
+_17163,sp2ColorAccum,second pass color accumulation,Second pass color accum,Second Pass Loop
+_17165,sp2TracerDir,second pass tracer direction,Second pass tracer dir,Second Pass Loop
+_8899,sp2VolumeIdxNext,volume index + 1,Second pass volume idx next,Second Pass Loop
+_13172,sp2HadPrevSample,had previous sample,Second pass had sample flag,Second Pass Loop
+_13173,sp2LastHitTemp,temp last hit,Second pass last hit temp,Second Pass Loop
+_14892,sp2TracerBits,tracer bits,Second pass tracer bits,Second Pass Loop
+_16323,sp2Sunlight,sunlight,Second pass sunlight,Second Pass Loop
+_16325,sp2FirstHitResult,first hit result,Second pass first hit result,Second Pass Loop
+_16865,sp2EarlyExit,early exit flag,Second pass early exit,Second Pass Loop
+_17180,sp2Godray,godray,Second pass godray,Second Pass Loop
+_17181,sp2ColorResult,color result,Second pass color result,Second Pass Loop
+_17182,sp2TracerGlow,tracer glow,Second pass tracer glow,Second Pass Loop
+_17183,sp2TracerDirResult,tracer dir result,Second pass tracer dir result,Second Pass Loop
+_17184,sp2CavityStr,cavity strength,Second pass cavity strength,Second Pass Loop
+_17185,sp2SunlightOut,sunlight output,Second pass sunlight out,Second Pass Loop
+_17188,sp2GodrayOut,godray output,Second pass godray out,Second Pass Loop
+_17189,sp2ColorOut,color output,Second pass color out,Second Pass Loop
+_18363,sp2PosOut,position output,Second pass position out,Second Pass Loop
+_13157,sp2HadSampleState,had sample state,Second pass had sample state,Second Pass State
+_16316,sp2SunAccum,sunlight accumulation,Second pass sun accumulation,Second Pass State
+_17161,sp2FogAccum,fog accumulation,Second pass fog accumulation,Second Pass State
+_17164,sp2CachedGlow,cached glow,Second pass cached glow,Second Pass State
+_17166,sp2CachedCavity,cached cavity,Second pass cached cavity,Second Pass State
+_17168,sp2CachedBits,cached bits,Second pass cached bits,Second Pass State
+_17169,sp2VolumeIdx,volume check index,Second pass volume index,Second Pass State
+_7958_ladder_break,sp2LoopBreak,loop break flag,Second pass loop break,Control Flow
+_7689,sp2TracerDir,tracer direction,Second pass tracer direction,Second Pass Tracer
+_13160,sp2TracerCache,tracer cache,Second pass tracer cache,Second Pass Tracer
+_13620,sp2CavityStr,cavity strength,Second pass cavity strength,Second Pass Tracer
+_16318,sp2TracerGlow,tracer glow,Second pass tracer glow,Second Pass Tracer
+_12886,sp2SkipTracer,skip tracer check,Second pass skip tracer,Second Pass Tracer
+_13158,sp2GlowLoop,glow in loop,Second pass glow loop,Second Pass Tracer
+_16317,sp2DirLoop,direction in loop,Second pass direction loop,Second Pass Tracer
+_17170,sp2CavityLoop,cavity in loop,Second pass cavity loop,Second Pass Tracer
+_8088,sp2TracerIdxNext,tracer index + 1,Second pass tracer index next,Second Pass Tracer
+_13159,sp2DirResult,direction result,Second pass direction result,Second Pass Tracer
+_13190,sp2CavityResult,cavity result,Second pass cavity result,Second Pass Tracer
+_14383,sp2GlowResult,glow result,Second pass glow result,Second Pass Tracer
+_17024,sp2TracerLoopIdx,tracer loop index,Second pass tracer loop index,Second Pass Tracer
+_21555,sp2TracerLineDir,tracer line direction,Second pass tracer line dir,Second Pass Tracer
+_14637,sp2PosToTracer,position to tracer,Second pass pos to tracer,Second Pass Tracer
+_19449,sp2DistToLine,distance to line,Second pass dist to line,Second Pass Tracer
+_14627,sp2TracerFade,tracer fade,Second pass tracer fade,Second Pass Tracer
+_6224,sp2SpotGlow,spot glow effect,Second pass spot glow,Second Pass Tracer
+_18732,sp2WindInfluence,wind influence,Second pass wind influence,Second Pass Tracer
+_10369,sp2PointGlow,point glow effect,Second pass point glow,Second Pass Tracer
+_25082,sp2VolumeId,volume ID,Second pass volume ID,Second Pass Volume
+_10670,sp2HasDensity,has density flag,Second pass has density,Second Pass Volume
+_13171,sp2SampleSun,sample sunlight,Second pass sample sunlight,Second Pass Volume
+_13638,sp2SampleColor,sample color,Second pass sample color,Second Pass Volume
+_16322,sp2SampleGodray,sample godray,Second pass sample godray,Second Pass Volume
+_25172,sp2OffsetPos,offset sample position,Second pass offset position,Second Pass Volume
+_22667,sp2VolumeIdxInt,volume index as int,Second pass volume idx int,Second Pass Volume
+_14659,sp2LocalPos,local position,Second pass local position,Second Pass Volume
+_21496,sp2VolumeUVW,volume UVW,Second pass volume UVW,Second Pass Volume
+_14093,sp2DensityPageIdx,density page index,Second pass density page idx,Second Pass Volume
+_24256,sp2UOffset,U offset,Second pass U offset,Second Pass Volume
+_11488,sp2DensitySample,density sample,Second pass density sample,Second Pass Volume
+_7715,sp2DensityChannels,density channels,Second pass density channels,Second Pass Volume
+_20594,sp2DensityMin,density minimum,Second pass density min,Second Pass Volume
+_6735,sp2DensityMax,density maximum,Second pass density max,Second Pass Volume
+_13161,sp2DensityVec4,density vec4,Second pass density vec4,Second Pass Volume
+_8284,sp2DistToEnd,distance to end,Second pass dist to end,Second Pass Volume
+_18057,sp2AdjustedDens,adjusted density,Second pass adjusted density,Second Pass Volume
+_11249,sp2DensityBlend,density blend,Second pass density blend,Second Pass Volume
+_6666,sp2CavityDens,cavity density,Second pass cavity density,Second Pass Density
+_17821,sp2OcclusionDist,occlusion distance,Second pass occlusion dist,Second Pass Density
+_20846,sp2DensMult,density multiplier,Second pass density multiplier,Second Pass Density
+_22282,sp2ScaledDens,scaled density,Second pass scaled density,Second Pass Density
+_6617,sp2ShadowTestPos,shadow test position,Second pass shadow test pos,Second Pass Density
+_13166,sp2ShadowMult,shadow multiplier,Second pass shadow multiplier,Second Pass Dissipation
+_13695,sp2EffectiveDens,effective density,Second pass effective density,Second Pass Density
+_16320,sp2ShadowAmount,shadow amount,Second pass shadow amount,Second Pass Dissipation
+_13162,sp2DissipLoopPos,dissipation loop pos,Second pass dissipation pos,Second Pass Dissipation
+_16319,sp2DissipAccum,dissipation accum,Second pass dissipation accum,Second Pass Dissipation
+_17173,sp2DissipScale,dissipation scale,Second pass dissipation scale,Second Pass Dissipation
+_8898,sp2DissipIdxNext,dissipation index next,Second pass dissip idx next,Second Pass Dissipation
+_13165,sp2DissipPosRes,dissipation pos result,Second pass dissip pos result,Second Pass Dissipation
+_14084,sp2DissipScaleRes,dissipation scale result,Second pass dissip scale result,Second Pass Dissipation
+_18362,sp2DissipAccumRes,dissipation accum result,Second pass dissip accum result,Second Pass Dissipation
+_17025,sp2DissipLoopIdx,dissipation loop index,Second pass dissip loop idx,Second Pass Dissipation
+_7959_ladder_break,sp2DissipBreak,dissipation break,Second pass dissip break,Control Flow
+_10811,sp2DissipAge,dissipation age,Second pass dissipation age,Second Pass Dissipation
+_13164,sp2DissipPosInt,dissipation pos interim,Second pass dissip pos int,Second Pass Dissipation
+_16384,sp2DissipScaleInt,dissipation scale interim,Second pass dissip scale int,Second Pass Dissipation
+_16482,sp2DissipEffectInt,dissipation effect interim,Second pass dissip effect int,Second Pass Dissipation
+_13669,sp2DistToDissip,distance to dissip point,Second pass dist to dissip,Second Pass Dissipation
+_13163,sp2DissipPosInner,dissipation pos inner,Second pass dissip pos inner,Second Pass Dissipation
+_16383,sp2DissipScaleInner,dissipation scale inner,Second pass dissip scale inner,Second Pass Dissipation
+_16481,sp2DissipEffectInner,dissipation effect inner,Second pass dissip effect inner,Second Pass Dissipation
+_16614,sp2DissipPulse,dissipation pulse,Second pass dissipation pulse,Second Pass Dissipation
+_13561,sp2SurfaceProx,surface proximity,Second pass surface proximity,Second Pass Dissipation
+_20018,sp2AnimTime,animation time,Second pass animation time,Second Pass Noise
+_11676,sp2CenteredPos,centered position,Second pass centered pos,Second Pass Noise
+_11773,sp2NoiseCoord,noise coordinate,Second pass noise coord,Second Pass Noise
+_11477,sp2NoiseZ,noise Z,Second pass noise Z,Second Pass Noise
+_9119,sp2RotAngle1,rotation angle 1,Second pass rot angle 1,Second Pass Noise
+_7388,sp2RotOffset,rotation offset,Second pass rot offset,Second Pass Noise
+_17176,sp2SinRot,sine rotation,Second pass sin rot,Second Pass Noise
+_17392,sp2CosRot,cosine rotation,Second pass cos rot,Second Pass Noise
+_23933,sp2RotatedXY,rotated XY,Second pass rotated XY,Second Pass Noise
+_16177,sp2RotatedX,rotated X,Second pass rotated X,Second Pass Noise
+_21584,sp2NoisePosTemp,noise position temp,Second pass noise pos temp,Second Pass Noise
+_6689,sp2RotatedY,rotated Y,Second pass rotated Y,Second Pass Noise
+_14460,sp2WaveTime,wave time,Second pass wave time,Second Pass Noise
+_24075,sp2WaveOffset,wave offset,Second pass wave offset,Second Pass Noise
+_10134,sp2PerturbedX,perturbed X,Second pass perturbed X,Second Pass Noise
+_10753,sp2PerturbedZ,perturbed Z,Second pass perturbed Z,Second Pass Noise
+_22426,sp2NoisePosPerturbed,perturbed noise position,Second pass noise pos perturbed,Second Pass Noise
+_8651,sp2FinalNoiseZ,final noise Z,Second pass final noise Z,Second Pass Noise
+_10825,sp2BaseNoiseCoord,base noise coordinate,Second pass base noise coord,Second Pass Noise
+_9986,sp2TimeOffset3D,3D time offset,Second pass time offset 3D,Second Pass Noise
+_13917,sp2RightOffset,camera right offset,Second pass right offset,Second Pass Noise
+_13918,sp2UpOffset,camera up offset,Second pass up offset,Second Pass Noise
+_16434,sp2NoisePowerVec,noise power vector,Second pass noise power vec,Second Pass Noise
+_21178,sp2RawNoiseSample,raw noise sample,Second pass raw noise sample,Second Pass Noise
+_6422,sp2LowFreqParams,low frequency params,Second pass low freq params,Second Pass Noise
+_7261,sp2HighFreqParams,high frequency params,Second pass high freq params,Second Pass Noise
+_15548,sp2NoiseBlend,noise blend,Second pass noise blend,Second Pass Noise
+_24110,sp2NoiseProcessed,processed noise,Second pass noise processed,Second Pass Noise
+_11091,sp2BaseNoiseCombined,combined base noise,Second pass base noise combined,Second Pass Noise
+_17266,sp2NoiseSampleX,noise sample X,Second pass noise sample X,Second Pass Noise
+_19782,sp2ProcessedX,processed X,Second pass processed X,Second Pass Noise
+_17267,sp2NoiseSampleY,noise sample Y,Second pass noise sample Y,Second Pass Noise
+_19783,sp2ProcessedY,processed Y,Second pass processed Y,Second Pass Noise
+_20361,sp2GradStep,gradient step,Second pass gradient step,Second Pass Normal
+_6513,sp2NoiseNormal,noise normal,Second pass noise normal,Second Pass Normal
+_21990,sp2ViewTransform,view transform,Second pass view transform,Second Pass Normal
+_16361,sp2CenteredPosZ,centered position Z,Second pass centered pos Z,Second Pass Detail
+_20801,sp2DetailCoord,detail coordinate,Second pass detail coord,Second Pass Detail
+_19465,sp2DetailScaled,detail scaled,Second pass detail scaled,Second Pass Detail
+_11131,sp2DetailSample,detail sample,Second pass detail sample,Second Pass Detail
+_19784,sp2DetailProcessed,detail processed,Second pass detail processed,Second Pass Detail
+_11093,sp2DetailCombined,detail combined,Second pass detail combined,Second Pass Detail
+_17268,sp2DetailSampleX,detail sample X,Second pass detail sample X,Second Pass Detail
+_19785,sp2DetailProcessedX,detail processed X,Second pass detail processed X,Second Pass Detail
+_17269,sp2DetailSampleY,detail sample Y,Second pass detail sample Y,Second Pass Detail
+_19786,sp2DetailProcessedY,detail processed Y,Second pass detail processed Y,Second Pass Detail
+_17672,sp2DepthFade,depth fade,Second pass depth fade,Second Pass Lighting
+_13168,sp2CombinedNoise,combined noise,Second pass combined noise,Second Pass Lighting
+_11622,sp2HeightFade,height fade,Second pass height fade,Second Pass Shaping
+_14676,sp2HeightParam,height parameter,Second pass height param,Second Pass Shaping
+_8420,sp2FadeStart,fade start,Second pass fade start,Second Pass Shaping
+_14552,sp2FadeEnd,fade end,Second pass fade end,Second Pass Shaping
+_12510,sp2HeightFadeResult,height fade result,Second pass height fade result,Second Pass Shaping
+_23052,sp2HeightTestPos,height test position,Second pass height test pos,Second Pass Shaping
+_13440,sp2StepDensity,step density,Second pass step density,Second Pass Shaping
+_21941,sp2BaseNormalDir,base normal direction,Second pass base normal dir,Second Pass Color
+_13056,sp2NormalTransform,normal transform,Second pass normal transform,Second Pass Color
+_19633,sp2ViewSpaceNormal,view space normal,Second pass view space normal,Second Pass Color
+_16794,sp2ScatterUVW,scatter UVW,Second pass scatter UVW,Second Pass Color
+_13570,sp2ScatterColor,scatter color,Second pass scatter color,Second Pass Color
+_15562,sp2SunDot,sun dot product,Second pass sun dot,Second Pass Lighting
+_8124,sp2Phase,phase function,Second pass phase,Second Pass Lighting
+_11276,sp2Sunlight,sunlight,Second pass sunlight,Second Pass Lighting
+_16848,sp2ScatterR,scatter red,Second pass scatter R,Second Pass HSV
+_15575,sp2ScatterG,scatter green,Second pass scatter G,Second Pass HSV
+_21521,sp2ScatterB,scatter blue,Second pass scatter B,Second Pass HSV
+_16616,sp2MaxRGB,max RGB,Second pass max RGB,Second Pass HSV
+_12973,sp2ColorRange,color range,Second pass color range,Second Pass HSV
+_6554,sp2HSVTemp,HSV temporary,Second pass HSV temp,Second Pass HSV
+_20312,sp2HSVColor,HSV color,Second pass HSV color,Second Pass HSV
+_20365,sp2Saturation,saturation,Second pass saturation,Second Pass HSV
+_18851,sp2ChromaDelta,chroma delta,Second pass chroma delta,Second Pass HSV
+_18381,sp2HueComponents,hue components,Second pass hue components,Second Pass HSV
+_10890,sp2HueOffset,hue offset,Second pass hue offset,Second Pass HSV
+_20311,sp2HSVResult,HSV result,Second pass HSV result,Second Pass HSV
+_12511,sp2HSVBranch,HSV branch,Second pass HSV branch,Second Pass HSV
+_11028,sp2HSVFinal,HSV final,Second pass HSV final,Second Pass HSV
+_20353,sp2AdjustedSat,adjusted saturation,Second pass adjusted sat,Second Pass RGB
+_14328,sp2FinalRGB,final RGB,Second pass final RGB,Second Pass RGB
+_23217,sp2HueAngle6,hue angle times 6,Second pass hue angle 6,Second Pass RGB
+_10654,sp2HueFloor,hue floor,Second pass hue floor,Second Pass RGB
+_19983,sp2RGBDesat,RGB desaturated,Second pass RGB desat,Second Pass RGB
+_17997,sp2HueFraction,hue fraction,Second pass hue fraction,Second Pass RGB
+_10563,sp2RGBInterp1,RGB interpolation 1,Second pass RGB interp 1,Second Pass RGB
+_23320,sp2RGBInterp2,RGB interpolation 2,Second pass RGB interp 2,Second Pass RGB
+_12516,sp2RGBFromHSV,RGB from HSV,Second pass RGB from HSV,Second Pass RGB
+_12515,sp2RGBBranch1,RGB branch 1,Second pass RGB branch 1,Second Pass RGB
+_12514,sp2RGBBranch2,RGB branch 2,Second pass RGB branch 2,Second Pass RGB
+_12513,sp2RGBBranch3,RGB branch 3,Second pass RGB branch 3,Second Pass RGB
+_12512,sp2RGBBranch4,RGB branch 4,Second pass RGB branch 4,Second Pass RGB
+_24094,sp2LitColor,lit color,Second pass lit color,Second Pass Final
+_23773,sp2TintedColor,tinted color,Second pass tinted color,Second Pass Final
+_16437,sp2DesaturatedColor,desaturated color,Second pass desaturated color,Second Pass Final
+_21314,sp2ShadowedColor,shadowed color,Second pass shadowed color,Second Pass Final
+_22661,sp2FogAmount,fog amount,Second pass fog amount,Second Pass Compositing
+_17657,sp2StepAlpha,step alpha,Second pass step alpha,Second Pass Compositing
+_22502,sp2StepContribution,step contribution,Second pass step contribution,Second Pass Accumulation
+_13170,sp2SunAccumLoop,sunlight accumulation loop,Second pass sun accum loop,Second Pass Accumulation
+_16321,sp2ColorAccumLoop,color accumulation loop,Second pass color accum loop,Second Pass Accumulation
+_17026,sp2SampleWeight,sample weight,Second pass sample weight,Second Pass Accumulation
+_17178,sp2FogAccumLoop,fog accumulation loop,Second pass fog accum loop,Second Pass Accumulation
+_11922,sp2SunUpdated,sunlight updated,Second pass sun updated,Second Pass Accumulation
+_19917,sp2ColorUpdated,color updated,Second pass color updated,Second Pass Accumulation
+_23567,sp2FogUpdated,fog updated,Second pass fog updated,Second Pass Accumulation
+_25060,sp2WeightDecrement,weight decrement,Second pass weight decrement,Second Pass Accumulation
+_21169,sp2ShouldRecordHit,should record hit,Second pass should record hit,Second Pass Hit
+_14401,sp2FirstHitUpdate,first hit update,Second pass first hit update,Second Pass Hit
+_23483,sp2ColorClamped,color clamped,Second pass color clamped,Second Pass Hit
+_23125,sunRimDot,pow(dot(normalize(rayDir) sunDir) 4.0) * 0.25,Sun rim lighting dot,Final Compositing
+_19877,foggedDensity,clamp(godrayAccum - (color.w * 0.2)),Godray darkening factor,Final Compositing
+_19214,preRimColor,color before rim lighting,Color before rim lighting,Final Compositing
+_22768,rimEnhancedColor,color * (1.0 + sunBloom),Rim-enhanced color,Final Compositing
+_23714,finalOutputColor,final output with rim,Final output color with rim,Final Output
+_7321,finalAlpha,finalAlpha = preRimColor.w,Final transmittance/alpha,Final Output
+_13311,logDepthRange,logDepthFar - logDepthNear,Logarithmic depth range,Depth Calculation
+_9068,logDepthNear,(log(dot(forward firstHit-camPos)) - near) / range * 2 - 1,Log depth at near hit,Depth Calculation
+_11137,logDepthFar,(log(dot(forward lastHit-camPos)) - near) / range * 2 - 1,Log depth at far hit,Depth Calculation
+_13176,moment0Accum,moment 0 accumulator,Moment 0 accumulator,Moment Calculation
+_16328,moment1Accum,moment 1 accumulator,Moment 1 accumulator,Moment Calculation
+_17193,moment2Accum,moment 2 accumulator,Moment 2 accumulator,Moment Calculation
+_10763,momentLoopIdx,moment loop index + 1,Moment loop index,Moment Loop
+_20077,moment1Updated,moment1 + contribution,Moment 1 updated,Moment Loop
+_22374,moment2Updated,moment2 + contribution,Moment 2 updated,Moment Loop
+_24741,moment0Updated,moment0 + contribution,Moment 0 updated,Moment Loop
+_17027,momentLoopCounter,moment loop counter,Moment loop counter,Moment Loop
+_3840,momentParam,0.25 * float(i+1),Moment parameter,Moment Calculation
+_6948,depthInterpolated,lerp(logDepthNear logDepthFar t),Interpolated depth,Moment Calculation
+_12308,momentWeight,-log(1.0 - clamp(alpha*t)),Moment weight,Moment Calculation
+_22961,depthSquared,depth * depth,Squared depth,Moment Calculation
+_14216,depthQuartic,depthSquared * depthSquared,Quartic (4th power) depth,Moment Calculation

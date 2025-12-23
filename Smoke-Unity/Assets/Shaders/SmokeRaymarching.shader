@@ -8,7 +8,7 @@ Shader "Unlit/SmokeRaymarching"
         [Header(Raymarching Core)]
         _BaseStepSize ("Base Step Size", Float) = 1.0
         _RayMarchStepScale ("Step Scale Multiplier", Range(0.1, 5.0)) = 1.0
-        _TemporalJitterAmount ("Temporal Jitter", Range(0.0, 1.0)) = 0.5
+        _TemporalJitterAmount ("Temporal Jitter", Range(0.0, 5.0)) = 0.5
         [IntRange] _ResolutionDivisor ("Resolution Divisor", Range(1, 8)) = 1
 
         // ========================================================
@@ -233,6 +233,14 @@ Shader "Unlit/SmokeRaymarching"
                 float alpha : SV_Target5;
             };
 
+            float computeRayStartJitter(float baseStepSize, float jitterNoise, float time, float tNear)
+            {
+                float jitterValue = frac(jitterNoise + (time * 0.618034));
+                float distanceFactor = lerp(0.1, 0.8, 
+                                           clamp((tNear + VOXEL_WORLD_SIZE * 20), 0.0, 1.0));
+                return (baseStepSize * jitterValue * _TemporalJitterAmount) * distanceFactor;
+            }
+            
             float4 SampleAndProcessNoise(float3 coord, float3 offsetBase)
             {
                 // ------------------------------------------
@@ -285,15 +293,17 @@ Shader "Unlit/SmokeRaymarching"
                 output.HigherMoments = float4(0, 0, 0, 0);
                 output.SmokeColor = float4(0, 0, 0, 0.0);
                 output.DepthRange = float2(0, 0);
-
-                // sample the depth of the scene
-                float rawDepth = SampleSceneDepth(input.uv);
+                
                 // sample the smokeMask
                 uint rawSmokeMask = (SAMPLE_TEXTURE2D(_SmokeMask, sampler_SmokeMask, input.uv).r);
 
                 // if no smoke is hit by this fragment, discard
                 if (rawSmokeMask == 0)
                     discard;
+
+                float rawDepth = SampleSceneDepth(input.uv);
+                
+                // sample the depth of the scene
 
                 // calculate the ndc position of the scene of this fragment
                 float4 ndc = float4(
@@ -302,6 +312,7 @@ Shader "Unlit/SmokeRaymarching"
                     rawDepth,
                     1.0
                 );
+                
 
                 float4 worldPos = mul(_InvVP, ndc);
                 // calculate the worldPosition of the scene of this fragment in world space
@@ -310,15 +321,15 @@ Shader "Unlit/SmokeRaymarching"
                 // from camera to the worldPosition
                 float3 rayDirection = normalize(worldPosition - _CameraPosition);
 
-                float rayEnterDistance, rayExitDistance;
+                float tNear, tFar;
 
                 bool isHitScene = AABBIntersect(
                     sceneAABBMin,
                     sceneAABBMax,
                     _CameraPosition,
                     rayDirection,
-                    rayEnterDistance,
-                    rayExitDistance
+                    tNear,
+                    tFar
                 );
 
                 if (!isHitScene)
@@ -326,22 +337,22 @@ Shader "Unlit/SmokeRaymarching"
                     discard;
                 }
 
+                                output.SmokeColor = float4(rawDepth,rawDepth,rawDepth,1.0f);
+                return output;
+                
+
                 float baseStepDistance = _BaseStepSize * 1.5;
                 int2 screenPixelCoord = int2(input.positionCS.xy);
 
                 int2 noiseTextureSize = int2(_BlueNoiseTex2D_TexelSize.zw);
                 int2 noiseMask = noiseTextureSize - 1;
-                int2 noiseCoord = screenPixelCoord & noiseMask;
+                int2 noiseCoord = (screenPixelCoord / 1) & noiseMask;
                 float blueNoiseSample = _BlueNoiseTex2D.Load(int3(noiseCoord, 0)).r;
 
-                float temporalOffset = frac(blueNoiseSample + (_Time.y * 0.618034));
-                float jitterAmount = baseStepDistance * temporalOffset * _TemporalJitterAmount;
+                float rayStartJitter = computeRayStartJitter(_BaseStepSize, blueNoiseSample, _Time.y, tNear);
 
-                float distanceBasedJitter = lerp(
-                    0.1, 0.8, clamp((rayEnterDistance + 150.0) * VOXEL_WORLD_SIZE_INV, 0.0, 1.0));
-
-                float rayMarchStart = max(rayEnterDistance, 0.05) + (jitterAmount * distanceBasedJitter);
-
+                float rayStartDistance = max(tNear, 0.5) + rayStartJitter;
+                
                 float linearSceneDepth = LinearEyeDepth(rawDepth, _ZBufferParams);
                 float rayDotCameraForward = dot(_CameraForward, rayDirection);
                 float sceneDepthAlongRay = linearSceneDepth / rayDotCameraForward;
@@ -356,13 +367,13 @@ Shader "Unlit/SmokeRaymarching"
 
                 float rayMarchEnd = sceneDepthAlongRay;
 
-                if (rayMarchStart > rayMarchEnd)
+                if (rayStartDistance > rayMarchEnd)
                 {
                     discard;
                 }
 
-                float3 marchStartWorldPos = _CameraPosition + (rayDirection * rayMarchStart);
-                float3 marchEndWorldPos = _CameraPosition + (rayDirection * min(rayExitDistance, rayMarchEnd));
+                float3 marchStartWorldPos = _CameraPosition + (rayDirection * rayStartDistance);
+                float3 marchEndWorldPos = _CameraPosition + (rayDirection * min(tFar, rayMarchEnd));
 
                 uint activeVolumeMask = (uint)_SmokeMask.Load(int3(screenPixelCoord, 0)).x;
 
@@ -414,7 +425,7 @@ Shader "Unlit/SmokeRaymarching"
                 if (activeVolumeCount > 0)
                 {
                     float smokeStart = volumeBoxList[0].tMin;
-                    rayMarchStart = max(rayMarchStart, smokeStart + (jitterAmount * distanceBasedJitter));
+                    rayStartDistance = max(rayStartDistance, smokeStart);
                 }
 
                 float totalMarchDistance = length(marchEndWorldPos - marchStartWorldPos);
@@ -423,7 +434,7 @@ Shader "Unlit/SmokeRaymarching"
                 uint validVolumeCount = min(activeVolumeCount, 1u);
 
                 float3 cameraSideVector = cross(_CameraForward, _CameraUp);
-                float totalRayDistance = rayMarchStart + totalMarchDistance;
+                float totalRayDistance = rayStartDistance + totalMarchDistance;
 
                 float4 accumulatedColor = float4(0.0, 0.0, 0.0, 0.0);
                 float3 accumulatedTracerDirection = float3(0.0, 0.0, 0.01);
@@ -435,7 +446,7 @@ Shader "Unlit/SmokeRaymarching"
                 float accumulatedFogDensity = 0.0;
                 float accumulatedTracerGlow = 0.0;
                 uint tracerAnimationCounter = 0u;
-                float currentRayDistance = rayMarchStart;
+                float currentRayDistance = rayStartDistance;
 
                 bool foundOpaqueVolume = false;
                 bool hasValidSample = false;
@@ -515,15 +526,12 @@ Shader "Unlit/SmokeRaymarching"
 
                         if (cavityDensity > 0.01)
                         {
-                            float occlusionDistance = max(0.0, distanceToMarchEnd - min(
-                                            VOXEL_RESOLUTION,
-                                            abs(backProjectedPoint.z - volumeCenters[volumeIntIdx].z) * 2.0));
+                            float occlusionDistance = max(0.0, distanceToMarchEnd - min( VOXEL_RESOLUTION, abs(backProjectedPoint.z - volumeCenters[volumeIntIdx].z) * 2.0));
                             float densityMultiplier = clamp((cavityDensity - 0.01) * 1.0101, 0.0, 1.0);
                             float scaledDensity = densityMultiplier * volumeFadeParams[currentVolumeIdx].x;
                             float cameraDist = distance(_CameraPosition, tracerOffsetSamplePos);
                             float cameraDistFactor = 1.0 - clamp(cameraDist * 0.1, 0.0, 1.0);
-                            float finalScaledDensity = clamp(scaledDensity + (cameraDistFactor * scaledDensity), 0.0,
-                                1.0);
+                            float finalScaledDensity = clamp(scaledDensity + (cameraDistFactor * scaledDensity), 0.0,1.0);
 
                             float3 shadowTestPos = tracerOffsetSamplePos;
                             float shadowAmount = 0.0;

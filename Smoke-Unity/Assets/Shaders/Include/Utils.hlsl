@@ -83,77 +83,6 @@ float PhaseHG(float cosTheta, float g)
     return (1.0 - g2) / (4.0 * 3.14159265 * pow(1.0 + g2 - 2.0 * g * cosTheta, 1.5));
 }
 
-float3 EnhanceColorSaturation(float3 inputColor, float boostAmount = 1.1f)
-{
-    float colorR = inputColor.r;
-    float colorG = inputColor.g;
-    float colorB = inputColor.b;
-    
-    float maxChannel = max(colorR, max(colorG, colorB));
-    float minChannel = min(colorR, min(colorG, colorB));
-    float chroma = maxChannel - minChannel;
-    
-    float3 hsvColor = float3(0.0, 0.0, 0.0);
-    hsvColor.z = maxChannel; // Value
-    
-    if (chroma != 0.0)
-    {
-        float saturation = chroma / maxChannel;
-        float3 chromaInv = (float3(maxChannel, maxChannel, maxChannel) - inputColor) / chroma;
-        float3 hueCalc = chromaInv.xyz - chromaInv.zxy;
-        
-        float3 hueSelect;
-        if (colorR >= maxChannel) {
-            hueSelect = float3(hueCalc.z, saturation, maxChannel);
-        } else if (colorG >= maxChannel) {
-            hueSelect = float3(hueCalc.x + 2.0, saturation, maxChannel);
-        } else {
-            hueSelect = float3(hueCalc.y + 4.0, saturation, maxChannel);
-        }
-        
-        hsvColor.x = frac(hueSelect.x * 0.166666667); // Hue
-        hsvColor.y = saturation;
-    }
-    
-    // 增强饱和度 (传入 boostAmount，原代码是 1.1)
-    float enhancedSaturation = saturate(hsvColor.y * boostAmount);
-    
-    // HSV -> RGB转换
-    float3 finalRGB;
-    
-    if (enhancedSaturation != 0.0)
-    {
-        float hue6 = hsvColor.x * 6.0;
-        float hueFloor = floor(hue6);
-        float hueFract = hue6 - hueFloor;
-        
-        float val = hsvColor.z;
-        float p = val * (1.0 - enhancedSaturation);
-        float q = val * (1.0 - (enhancedSaturation * hueFract));
-        float t = val * (1.0 - (enhancedSaturation * (1.0 - hueFract)));
-        
-        // 这里的 if-else 链在 GPU 上效率一般，但为了还原你的逻辑保留原样
-        if (hueFloor == 0.0) {
-            finalRGB = float3(val, t, p);
-        } else if (hueFloor == 1.0) {
-            finalRGB = float3(q, val, p);
-        } else if (hueFloor == 2.0) {
-            finalRGB = float3(p, val, t);
-        } else if (hueFloor == 3.0) {
-            finalRGB = float3(p, q, val);
-        } else if (hueFloor == 4.0) {
-            finalRGB = float3(t, p, val);
-        } else {
-            finalRGB = float3(val, p, q);
-        }
-    }
-    else
-    {
-        finalRGB = float3(hsvColor.z, hsvColor.z, hsvColor.z);
-    }
-    
-    return finalRGB;
-}
 
 float SampleLayeredNoise(Texture3D noiseTex3D, SamplerState noiseSampler, float noiseScale, float detailNoiseScale, float3 worldPos, float time, float noiseSpeed)
 {
@@ -280,6 +209,18 @@ float3 CalculateAtlasUVW(
     
     //return float3(atlasU, swizzledUVW.y, swizzledUVW.z);
 }
+
+float2 rayBoxIntersection(float3 invRayDir, float3 rayOrigin, float3 boxMin, float3 boxMax)
+{
+    float3 tToMin = invRayDir * (boxMin - rayOrigin);
+    float3 tToMax = invRayDir * (boxMax - rayOrigin);
+    float3 tMinPerAxis = min(tToMax, tToMin);
+    float3 tMaxPerAxis = max(tToMax, tToMin);
+    float2 tMinComp = max(tMinPerAxis.xx, tMinPerAxis.yz);
+    float2 tMaxComp = min(tMaxPerAxis.xx, tMaxPerAxis.yz);
+    return float2(max(tMinComp.x, tMinComp.y), min(tMaxComp.x, tMaxComp.y));
+}
+
 
 float4 SampleSmokeAtUVW(
     Texture3D smokeTex,
@@ -933,15 +874,10 @@ float GetSmokeDensityWithGradientCS2(
 
 /// 
 /// @return the origin is a corner
-float3 GetVolumeUVW(float3 sampleWorldPos, float3 volumeCenterWorldPos, out float3 volumeLocalPos)
+float3 GetVolumeLocalUVW(float3 worldPos, float3 volumeCenter, out float3 localUVW)
 {
-    float3 offset = sampleWorldPos - volumeCenterWorldPos;
-    
-    float3 uvw = (offset / VOXEL_WORLD_SIZE) + 0.5;
-    
-    volumeLocalPos = uvw * VOXEL_RESOLUTION;
-    
-    return uvw;
+    localUVW = clamp(((worldPos - volumeCenter) * VOXEL_WORLD_SIZE_INV) + 0.5, 0.0, 1.0);
+    return localUVW;
 }
 
 float4 SampleSmokeTexture(float3 sampleUVW, Texture3D tex, SamplerState texSampler, int slotIndex, float volumeBlend, out float sampledDensityMin, out float sampledDensityMax)

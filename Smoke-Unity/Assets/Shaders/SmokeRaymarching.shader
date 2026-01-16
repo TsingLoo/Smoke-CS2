@@ -314,8 +314,9 @@ Shader "Unlit/SmokeRaymarching"
                 // Sample density
                 float4 densitySample = _SmokeTex3D.SampleLevel(sampler_SmokeTex3D, volumeUVW.xyz, 0.0);
 
-                stepColor = float4(densitySample.x, densitySample.y,densitySample.z, 1.0);
-                return true;
+                stepColor = densitySample;
+                return  true;
+                //return true;
                 
                 float2 densityChannels = lerp(densitySample.xz, densitySample.yw, float2(volumeAnimState[volumeIdx].y, volumeAnimState[volumeIdx].y));
                 float sampledDensityMin = densityChannels.x;
@@ -546,13 +547,16 @@ Shader "Unlit/SmokeRaymarching"
                     
                 
 
-                float4 worldPos = mul(_InvVP, ndc);
+                float4 worldPos = mul(_InvVP,ndc);
                 // calculate the worldPosition of the scene of this fragment in world space
                 float3 worldPosition = worldPos.xyz / worldPos.w;
 
                 // from camera to the worldPosition
                 float3 rayDirection = normalize(worldPosition - _CameraPosition);
                 float3 invRayDirection = float3(1.0, 1.0, 1.0) / rayDirection;
+
+                // output.outSmokeColor = float4(invRayDirection.x, invRayDirection.y, invRayDirection.z, 1.0);
+                // return output;
                 
                 float tNear, tFar;
 
@@ -569,30 +573,36 @@ Shader "Unlit/SmokeRaymarching"
                 {
                     discard;
                 }
-
-                //output.SmokeColor = float4(rawDepth,rawDepth,rawDepth,1.0f);
-                //return output;
                 
-                float baseStepDistance = _BaseStepSize * 1.5;
+                
+                float baseStepDistance = _BaseStepSize * STEP_DISTANCE_MULTIPLIER;
                 int2 fragCoord = int2(input.positionCS.xy);
 
                 int2 noiseTextureSize = int2(_BlueNoiseTex2D_TexelSize.zw);
                 int2 noiseMask = noiseTextureSize - 1;
                 int2 noiseCoord = (fragCoord / 1) & noiseMask;
                 float blueNoiseSample = _BlueNoiseTex2D.Load(int3(noiseCoord, 0)).r;
-
                 float rayStartJitter = computeRayStartJitter(_BaseStepSize, blueNoiseSample, _Time.y, tNear);
 
-                float rayMarchStart = max(tNear, 0.5) + rayStartJitter;
-                
-                float linearSceneDepth = LinearEyeDepth(rawDepth, _ZBufferParams);
+                float rayMarchStart = max(tNear, RAY_NEAR_CLIP_OFFSET) + rayStartJitter;
+                //float linearSceneDepth = LinearEyeDepth(rawDepth, _ZBufferParams);
                 float rayDotCameraForward = dot(_CameraForward, rayDirection);
+                
+                float linearSceneDepth =  rawDepth * _ZBufferParams.z + _ZBufferParams.w;
+                //float linearSceneDepth = 1 / LinearEyeDepth(rawDepth, _ZBufferParams);
                 float sceneDepthAlongRay = linearSceneDepth / rayDotCameraForward;
-
+                
                 float3 negativeRayDir = (-rayDirection).xyz;
                 float3 backProjectedPoint = _CameraPosition.xyz +
                 (negativeRayDir * (1.0 / (linearSceneDepth *
                     dot(_CameraForward.xyz, negativeRayDir))));
+
+                // output.outSmokeColor = float4(backProjectedPoint.x ,backProjectedPoint.y ,backProjectedPoint.z ,1.0);
+                // return output;
+
+                // output.outSmokeColor = float4(linearSceneDepth ,linearSceneDepth ,linearSceneDepth ,1.0);
+                // return output;
+
 
                 bool hasExplosionLayer = enableExplosions > 0u;
 
@@ -754,11 +764,11 @@ Shader "Unlit/SmokeRaymarching"
                             _BaseStepSize, FIRST_PASS_WEIGHT,  // <-- weight parameters
                             stepColor, stepLightEnergy, stepFogDensity);
 
-                        if(volumeCheckIndex > 1000){
-				            output.outSmokeColor = stepColor;
-                            output.outSmokeColor = float4(1.0,1.0,0.5,1.0);
-				            return output;
-			            }
+               //          if(volumeCheckIndex > 1000){
+				           //  output.outSmokeColor = stepColor;
+               //              output.outSmokeColor = float4(1.0,1.0,0.5,1.0);
+				           //  return output;
+			            // }
                         
                         bool shouldRecordFirstHit = hasValidSampleResult && !hadPreviousSample;
                         if (shouldRecordFirstHit)
@@ -795,7 +805,7 @@ Shader "Unlit/SmokeRaymarching"
                         loopHadPrevSample = hadPreviousSample;
                     }
 
-                                        if (innerLoopBreak)
+                    if (innerLoopBreak)
                     {
                         loopRayTOut = currentRayDistance;
                         break;
@@ -828,89 +838,6 @@ Shader "Unlit/SmokeRaymarching"
                 float finalSunlightAccum = loopSunlightOut;
                 float finalGodrayAccum = loopGodrayOut;
                 float4 finalAccumColor = loopColorOut;
-
-                if (!foundOpaqueFlag && _EnableSecondPass != 0)
-                {
-                    float sp2StartT = loopRayTOut - baseStepDistance;
-                    float3 sp2StartPos = marchStartWorldPos + (rayDirection * totalMarchDistance);
-                    float sp2RayLength = totalRayDistance - sp2StartT;
-                    
-                    float4 sp2ColorAccum = loopColorOut;
-                    float3 sp2TracerDir = accumulatedTracerDirection;
-                    float3 sp2CurrentPos = loopFirstHitPos;
-                    bool sp2HadSampleState = loopHadPrevSample;
-                    float sp2SunAccum = loopSunlightOut;
-                    float sp2FogAccum = loopGodrayOut;
-                    float sp2CachedGlow = accumulatedTracerGlow;
-                    float sp2CachedCavity = tracerCavityStrength;
-                    uint sp2CachedBits = tracerAnimationCounter;
-                    
-                    bool sp2EarlyExit = false;
-                    
-                    [loop]
-                    for (uint sp2VolumeIdx = 0u; sp2VolumeIdx < validVolumeCount; sp2VolumeIdx++)
-                    {
-                        if (sp2StartT < volumeBoxList[sp2VolumeIdx].tMax)
-                            continue;
-                        if (sp2StartT > volumeBoxList[sp2VolumeIdx].tMin)
-                            continue;
-                        
-                        // Tracer influence
-                        if (activeTracerCount > 0u && (sp2CachedBits & 3u) == 0u)
-                        {
-                            calculateTracerInfluence(sp2StartPos, sp2CachedGlow, sp2TracerDir, sp2CachedCavity);
-                            sp2CachedBits |= 1u;
-                        }
-                        
-                        uint sp2VolumeId = uint(volumeBoxList[sp2VolumeIdx].index);
-                        uint sp2DensityPageIdx = uint(volumeAnimState[sp2VolumeId].z);
-                        float sp2UOffset = DENSITY_PAGE_STRIDE * float(sp2DensityPageIdx);
-                        
-                        bool sp2HasDensity = sampleVolume(
-                            sp2StartPos, marchEndWorldPos, backProjectedPoint, rayDirection, cameraSideVector,
-                            sp2VolumeId, sp2UOffset, sp2DensityPageIdx,
-                            sp2CachedGlow, sp2TracerDir, sp2CachedCavity,
-                            hasExplosionLayer, skipDueToOcclusion,
-                            sp2RayLength, SECOND_PASS_WEIGHT,  // <-- weight parameters
-                            sp2ColorAccum, sp2SunAccum, sp2FogAccum);
-                        
-                        bool sp2ShouldRecordFirstHit = sp2HasDensity && !sp2HadSampleState;
-                        if (sp2ShouldRecordFirstHit)
-                            sp2CurrentPos = sp2StartPos;
-                        
-                        // Track last valid sample position
-                        float3 sp2LastSamplePos = loopLastHitPos;
-                        if (sp2HasDensity)
-                            sp2LastSamplePos = sp2StartPos;
-                        
-                        if (sp2ColorAccum.w > OPAQUE_THRESHOLD)
-                        {
-                            sp2ColorAccum.w = 1.0;
-                            finalLastHitPos = sp2StartPos;
-                            finalFirstHitPos = sp2CurrentPos;
-                            finalSunlightAccum = sp2SunAccum;
-                            finalGodrayAccum = sp2FogAccum;
-                            finalAccumColor = sp2ColorAccum;
-                            sp2EarlyExit = true;
-                            break;
-                        }
-                        
-                        if (sp2ShouldRecordFirstHit)
-                            sp2HadSampleState = true;
-                        
-                        // Update the last hit position for final output
-                        loopLastHitPos = sp2LastSamplePos;
-                    }
-                    
-                    if (!sp2EarlyExit)
-                    {
-                        finalLastHitPos = loopLastHitPos;
-                        finalFirstHitPos = sp2CurrentPos;
-                        finalSunlightAccum = sp2SunAccum;
-                        finalGodrayAccum = sp2FogAccum;
-                        finalAccumColor = sp2ColorAccum;
-                    }
-                }
                 
                 Light mainLight = GetMainLight();
                 float3 mainLightDir = mainLight.direction;
@@ -953,12 +880,8 @@ Shader "Unlit/SmokeRaymarching"
                     moment2Accum += float4(depthSquared * depthInterpolated, depthQuartic, depthQuartic * depthInterpolated, depthQuartic * depthSquared) * momentWeight;
                 }
                 
-                output.outMoment0 = moment0Accum;
-                output.outMoment1 = moment1Accum;
-                output.outMoment2 = moment2Accum;
-                output.outSmokeColor = finalOutputColor;
-                output.outDepthMinMax = float4(logDepthNear, logDepthFar, 0.0, 0.0);
-                output.outTransmittance = finalAlpha;
+                output.outSmokeColor = loopColorOut;
+                //output.outSmokeColor = float4(1.0, 1.0, 0.5, 1.0);
                 
                 return output;
             }

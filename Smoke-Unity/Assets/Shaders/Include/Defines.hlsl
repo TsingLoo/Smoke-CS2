@@ -30,7 +30,7 @@ static const float ATLAS_DEPTH_INV = 1.0f / ATLAS_DEPTH;
 #define DENSITY_PAGE_STRIDE         32.0                // U offset per density page
 
 // --- Ray Marching ---
-#define RAY_NEAR_CLIP_OFFSET        4.0                 // minimum ray start distance
+#define RAY_NEAR_CLIP_OFFSET        0.1                 // minimum ray start distance
 #define SCENE_DEPTH_OFFSET          0.01                 // offset from scene depth
 #define OCCLUSION_DEPTH_THRESHOLD   10.0                // secondary depth occlusion test
 #define STEP_DISTANCE_MULTIPLIER    1.5                 // base step size modifier

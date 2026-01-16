@@ -610,60 +610,33 @@ MonoBehaviour:
     serializedVersion: 2
     m_Curve:
     - serializedVersion: 3
-      time: -0.09947599
-      value: 0.65952826
-      inSlope: -0.6202513
-      outSlope: -0.6202513
-      tangentMode: 34
+      time: 0.0064468384
+      value: 0.08396149
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
       weightedMode: 0
       inWeight: 0
-      outWeight: 0.33333334
-    - serializedVersion: 3
-      time: 0.17874868
-      value: 0.48695904
-      inSlope: 0.0017002528
-      outSlope: 0.0017002528
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 1
-    - serializedVersion: 3
-      time: 0.5532284
-      value: 0.28228635
-      inSlope: -0.105544746
-      outSlope: -0.105544746
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    - serializedVersion: 3
-      time: 0.7738735
-      value: 0.17279486
-      inSlope: -0.09808175
-      outSlope: -0.09808175
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    - serializedVersion: 3
-      time: 0.9143594
-      value: 0.1221481
-      inSlope: -0.18967174
-      outSlope: -0.18967174
-      tangentMode: 34
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    - serializedVersion: 3
-      time: 0.98045856
-      value: 0.12090331
-      inSlope: -0.01883206
-      outSlope: -0.01883206
-      tangentMode: 34
-      weightedMode: 0
-      inWeight: 0.33333334
       outWeight: 0
-    m_PreInfinity: 0
+    - serializedVersion: 3
+      time: 0.99015003
+      value: 0.081000246
+      inSlope: -0.12622063
+      outSlope: -0.12622063
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1.0036845
+      value: 0.07862623
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
   shadowProxy: {fileID: 806873341}

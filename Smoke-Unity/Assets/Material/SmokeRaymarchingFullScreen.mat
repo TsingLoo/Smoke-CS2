@@ -36,32 +36,36 @@ Material:
         m_Texture: {fileID: 11700000, guid: 9164e42e3f008054f86d0675851f2829, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _RawCS2SmokeDataTex3D:
+        m_Texture: {fileID: 11700000, guid: 8750967b4e5127f41b6d923260e20917, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AlphaScale: 1
-    - _BaseColorIntensity: 1
-    - _BaseStepSize: 0.05
-    - _DensityContrast: 1
+    - _AlphaScale: 0.34
+    - _BaseColorIntensity: 1.21
+    - _BaseStepSize: 0.21
+    - _DensityContrast: 3.73
     - _DepthDownscaleFactor: 1
-    - _DetailNoiseInfluence: 0.5
+    - _DetailNoiseInfluence: 0.69
     - _EnableSecondPass: 1
     - _GodrayFalloffDist: 100
-    - _GodrayIntensity: 0.1
-    - _JitterScale: 0.5
-    - _Noise1Influence: 0.5
-    - _Noise1Scale: 1
-    - _Noise2Scale: 2
-    - _NoiseColorA: 1
-    - _NoiseColorB: 0.5
+    - _GodrayIntensity: 0
+    - _JitterScale: 2.48
+    - _Noise1Influence: 0.39
+    - _Noise1Scale: 0.01
+    - _Noise2Scale: -0.3
+    - _NoiseColorA: 1.77
+    - _NoiseColorB: 0.81
     - _NoiseMixFactor: 0.5
-    - _NoiseOffset: 0
-    - _NoisePower: 0.5
-    - _NormalDetailScale: 1
-    - _NormalPerturbScale: 1
-    - _PhaseBlend: 0.5
-    - _RimLightIntensity: 1
-    - _SunColorIntensity: 1
-    - _TimeScale: 1
+    - _NoiseOffset: 0.24
+    - _NoisePower: 1.33
+    - _NormalDetailScale: 2.37
+    - _NormalPerturbScale: 0.17
+    - _PhaseBlend: 0.4
+    - _RimLightIntensity: 0.69
+    - _SunColorIntensity: 1.58
+    - _TimeScale: 0.46
     m_Colors:
-    - _ColorTint: {r: 1, g: 1, b: 1, a: 0}
+    - _ColorTint: {r: -5.58, g: 0.26, b: 0.26, a: 0.25}
   m_BuildTextureStacks: []

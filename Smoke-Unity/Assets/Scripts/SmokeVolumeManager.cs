@@ -13,7 +13,16 @@ public class SmokeVolumeManager : MonoBehaviour
     public const float GRID_WORLD_SIZE = 14.0f; 
     public const int MAX_SMOKE_COUNT = 16;
     public const int VOXEL_RES = 32;
-    public const int ATLAS_DEPTH = VOXEL_RES * MAX_SMOKE_COUNT; 
+    
+    // 新增：X轴堆叠相关常量
+    public const int STRIDE = 2;  // 每个体积之间的黑像素列数
+    // 总宽度 = 32*16 + 2*(16-1) = 512 + 30 = 542
+    public const int ATLAS_WIDTH = VOXEL_RES * MAX_SMOKE_COUNT + STRIDE * (MAX_SMOKE_COUNT - 1);
+    public const int ATLAS_HEIGHT = VOXEL_RES;  // 32
+    public const int ATLAS_DEPTH = VOXEL_RES;   // 32
+    
+    // 每个slot在X轴上的步进（包含stride）
+    public const int SLOT_STRIDE = VOXEL_RES + STRIDE;  // 34
     
     [StructLayout(LayoutKind.Sequential)]
     struct SmokeVolumeData
@@ -66,8 +75,6 @@ public class SmokeVolumeManager : MonoBehaviour
     [Tooltip("GPU插值的目标时间（秒）。只有当上一帧插值完全结束后，才会上传新数据。")]
     [Range(0.05f, 0.5f)]
     public float interpolationDuration = 0.1f;
-    
-    // [Removed] minUploadInterval 已移除，由 interpolationDuration 全权控制节奏
 
     [Header("Debug")]
     public bool showGizmos = true;
@@ -81,7 +88,7 @@ public class SmokeVolumeManager : MonoBehaviour
     private ComputeBuffer metadataBuffer;  
     private SmokeVolumeData[] metadataArray;
 
-    //we actually upload buffer to GPu
+    // we actually upload buffer to GPU
     private ComputeBuffer sceneUniformBuffer;
     private SceneVolumeUniforms cpuData;
     private SceneVolumeUniforms[] dataArray;
@@ -89,8 +96,7 @@ public class SmokeVolumeManager : MonoBehaviour
     private class SlotInfo { public bool active; public Vector3 pos; public Vector3 size; }
     private SlotInfo[] slots = new SlotInfo[MAX_SMOKE_COUNT];
 
-    // ===== 新增：Pending 缓冲区 (用于解决 R/G 通道数据一致的问题) =====
-    // 存储最新的 Sim 数据，等待上传时机
+    // ===== Pending 缓冲区 =====
     private byte[][] pendingDensityData;
     private byte[][] pendingSmokeData;
 
@@ -105,9 +111,11 @@ public class SmokeVolumeManager : MonoBehaviour
     private static readonly int _SmokeCount = Shader.PropertyToID(nameof(_SmokeCount));
     private static readonly int _SmokeTex3D = Shader.PropertyToID(nameof(_SmokeTex3D));
     private static readonly int _VolumeSize = Shader.PropertyToID("_VolumeSize");
-
     private static readonly int _SceneVolumeUniforms = Shader.PropertyToID(nameof(_SceneVolumeUniforms)); 
     
+    // 新增：传递给Shader的atlas参数
+    private static readonly int _AtlasWidth = Shader.PropertyToID("_SmokeAtlasWidth");
+    private static readonly int _SlotStride = Shader.PropertyToID("_SmokeSlotStride");
 
     void Awake()
     {
@@ -120,10 +128,15 @@ public class SmokeVolumeManager : MonoBehaviour
 
     private void Start()
     {
-        cpuData.sceneAABBMin = new Vector4(-100, -100, -100, 1);
-        cpuData.sceneAABBMax = new Vector4(100, 100, 100, 1);
+        cpuData.sceneAABBMin = new Vector4(float.MaxValue, float.MaxValue, float.MaxValue, 1);
+        cpuData.sceneAABBMax = new Vector4(float.MinValue, float.MinValue, float.MinValue, 1);
         
         Shader.SetGlobalFloat(_VolumeSize, GRID_WORLD_SIZE);
+        
+        // 传递新的atlas布局参数给Shader
+        Shader.SetGlobalInt(_AtlasWidth, ATLAS_WIDTH);
+        Shader.SetGlobalInt(_SlotStride, SLOT_STRIDE);
+        
         lastUploadTime = Time.time;
     }
 
@@ -136,15 +149,17 @@ public class SmokeVolumeManager : MonoBehaviour
 
     void InitializeSystem()
     {
-        for(int i=0; i<MAX_SMOKE_COUNT; i++) slots[i] = new SlotInfo();
+        for(int i = 0; i < MAX_SMOKE_COUNT; i++) slots[i] = new SlotInfo();
 
+        // 修改：X轴堆叠，维度为 542 x 32 x 32
         // R=HistoryAll, G=TargetAll, B=HistorySmoke, A=TargetSmoke
-        smokeAtlas = new Texture3D(VOXEL_RES, VOXEL_RES, ATLAS_DEPTH, TextureFormat.RGBA32, false);
+        smokeAtlas = new Texture3D(ATLAS_WIDTH, ATLAS_HEIGHT, ATLAS_DEPTH, TextureFormat.RGBA32, false);
         smokeAtlas.wrapMode = TextureWrapMode.Clamp;
         smokeAtlas.filterMode = FilterMode.Trilinear;
         smokeAtlas.name = "DynamicSmokeAtlas";
 
-        atlasDataCPU = new byte[VOXEL_RES * VOXEL_RES * ATLAS_DEPTH * 4];
+        // 修改：新的数据大小
+        atlasDataCPU = new byte[ATLAS_WIDTH * ATLAS_HEIGHT * ATLAS_DEPTH * 4];
         smokeAtlas.SetPixelData(atlasDataCPU, 0);
         smokeAtlas.Apply();
 
@@ -161,6 +176,31 @@ public class SmokeVolumeManager : MonoBehaviour
             pendingDensityData[i] = new byte[voxelsPerSlot];
             pendingSmokeData[i] = new byte[voxelsPerSlot];
         }
+    }
+
+    /// <summary>
+    /// 计算slot在X轴上的起始位置
+    /// Slot 0: X = 0
+    /// Slot 1: X = 34 (32 + 2)
+    /// Slot i: X = i * 34
+    /// </summary>
+    private int GetSlotStartX(int slotIndex)
+    {
+        return slotIndex * SLOT_STRIDE;
+    }
+
+    /// <summary>
+    /// 将本地体素坐标转换为atlas中的线性字节索引
+    /// </summary>
+    private int LocalToAtlasIndex(int slotIndex, int localX, int localY, int localZ)
+    {
+        int globalX = GetSlotStartX(slotIndex) + localX;
+        int globalY = localY;
+        int globalZ = localZ;
+        
+        // 3D纹理线性索引：x + y * width + z * width * height
+        int voxelIndex = globalX + globalY * ATLAS_WIDTH + globalZ * ATLAS_WIDTH * ATLAS_HEIGHT;
+        return voxelIndex * 4;  // RGBA, 4 bytes per voxel
     }
 
     public int AllocateSmokeSlot()
@@ -208,9 +248,6 @@ public class SmokeVolumeManager : MonoBehaviour
     public void WriteSmokeMetadata(int slotIndex, Vector3 pos, Vector3 size, Color tint, float intensity)
     {
         if (slotIndex < 0 || slotIndex >= MAX_SMOKE_COUNT) return;
-        
-        // slots[slotIndex].pos = pos; 
-        // slots[slotIndex].size = size;
 
         cpuData.volumeMinBounds[slotIndex] = pos - size * 0.5f;
         cpuData.volumeMaxBounds[slotIndex] = pos + size * 0.5f;
@@ -219,6 +256,24 @@ public class SmokeVolumeManager : MonoBehaviour
         cpuData.volumeTintColor[slotIndex] = tint;
         cpuData.volumeFadeParams[slotIndex] = new Vector4(1.0f, 0.5f, 0.5f, 1.0f);
 
+        Vector3 sceneMin = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+        Vector3 sceneMax = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+
+        for (int i = 0; i < MAX_SMOKE_COUNT; i++)
+        {
+            Vector3 vMin = cpuData.volumeMinBounds[i];
+            Vector3 vMax = cpuData.volumeMaxBounds[i];
+            
+            if (vMin != Vector3.zero || vMax != Vector3.zero) 
+            {
+                sceneMin = Vector3.Min(sceneMin, vMin);
+                sceneMax = Vector3.Max(sceneMax, vMax);
+            }
+        }
+
+        cpuData.sceneAABBMin = new Vector4(sceneMin.x, sceneMin.y, sceneMin.z, 1.0f);
+        cpuData.sceneAABBMax = new Vector4(sceneMax.x, sceneMax.y, sceneMax.z, 1.0f);
+        
         isMetadataDirty = true;
     }
 
@@ -234,10 +289,21 @@ public class SmokeVolumeManager : MonoBehaviour
         Array.Clear(pendingDensityData[slotIndex], 0, voxelsPerSlot);
         Array.Clear(pendingSmokeData[slotIndex], 0, voxelsPerSlot);
 
-        // 2. 清空 Texture CPU 缓存
-        int oneVolBytes = voxelsPerSlot * 4; // RGBA
-        int offset = slotIndex * oneVolBytes;
-        Array.Clear(atlasDataCPU, offset, oneVolBytes);
+        // 2. 清空 Texture CPU 缓存中对应slot的区域
+        for (int z = 0; z < VOXEL_RES; z++)
+        {
+            for (int y = 0; y < VOXEL_RES; y++)
+            {
+                for (int x = 0; x < VOXEL_RES; x++)
+                {
+                    int byteIndex = LocalToAtlasIndex(slotIndex, x, y, z);
+                    atlasDataCPU[byteIndex + 0] = 0;  // R
+                    atlasDataCPU[byteIndex + 1] = 0;  // G
+                    atlasDataCPU[byteIndex + 2] = 0;  // B
+                    atlasDataCPU[byteIndex + 3] = 0;  // A
+                }
+            }
+        }
         
         isTextureDirty = true;
     }
@@ -252,13 +318,9 @@ public class SmokeVolumeManager : MonoBehaviour
             isMetadataDirty = false;
         }
     }
-    
-
 
     void LateUpdate()
     {
-        // 检查是否需要上传纹理
-        // 核心修改：只有当插值时间 >= 设定时间 (即上一段动画播完了)，才允许上传
         float timeSinceUpload = Time.time - lastUploadTime;
         bool animationFinished = timeSinceUpload >= interpolationDuration;
         
@@ -272,11 +334,7 @@ public class SmokeVolumeManager : MonoBehaviour
     {
         float timeSinceUpload = Time.time - lastUploadTime;
         
-        // 计算 t (0 -> 1)
         float t = Mathf.Clamp01(timeSinceUpload / interpolationDuration);
-        
-        // 缓动
-        //t = SmoothStep(t);
         t = t * t * t * (t * (t * 6f - 15f) + 10f);
         currentInterpolationT = t;
         Shader.SetGlobalFloat(_InterpolationT, t);
@@ -284,36 +342,44 @@ public class SmokeVolumeManager : MonoBehaviour
 
     /// <summary>
     /// 上传逻辑的核心：执行关键帧交换 (Swap)
+    /// 修改为X轴堆叠的索引方式
     /// </summary>
     void UploadTextureData()
     {
-        int voxelsPerSlot = VOXEL_RES * VOXEL_RES * VOXEL_RES;
-
         for (int i = 0; i < MAX_SMOKE_COUNT; i++)
         {
             if (!slots[i].active) continue;
 
             byte[] newAll = pendingDensityData[i];
             byte[] newSmoke = pendingSmokeData[i];
-            
-            int startByteIndex = i * voxelsPerSlot * 4;
 
-            for (int v = 0; v < voxelsPerSlot; v++)
+            // 遍历本地体素坐标
+            for (int z = 0; z < VOXEL_RES; z++)
             {
-                int ptr = startByteIndex + (v * 4);
+                for (int y = 0; y < VOXEL_RES; y++)
+                {
+                    for (int x = 0; x < VOXEL_RES; x++)
+                    {
+                        // pending数据中的本地索引
+                        int localVoxelIndex = x + y * VOXEL_RES + z * VOXEL_RES * VOXEL_RES;
+                        
+                        // atlas中的字节索引
+                        int atlasPtr = LocalToAtlasIndex(i, x, y, z);
 
-                // --- 关键逻辑：Frame Swap ---
-                // 1. 读取当前的 Target (G/A)，它将成为下一帧的 History
-                byte lastFrameTargetAll = atlasDataCPU[ptr + 1];
-                byte lastFrameTargetSmoke = atlasDataCPU[ptr + 3];
+                        // --- 关键逻辑：Frame Swap ---
+                        // 1. 读取当前的 Target (G/A)
+                        byte lastFrameTargetAll = atlasDataCPU[atlasPtr + 1];
+                        byte lastFrameTargetSmoke = atlasDataCPU[atlasPtr + 3];
 
-                // 2. 写入 History (R/B) = 上一帧的 Target
-                atlasDataCPU[ptr + 0] = lastFrameTargetAll;   // R
-                atlasDataCPU[ptr + 2] = lastFrameTargetSmoke; // B
+                        // 2. 写入 History (R/B) = 上一帧的 Target
+                        atlasDataCPU[atlasPtr + 0] = lastFrameTargetAll;   // R
+                        atlasDataCPU[atlasPtr + 2] = lastFrameTargetSmoke; // B
 
-                // 3. 写入 Target (G/A) = Pending 中最新的 Sim 数据
-                atlasDataCPU[ptr + 1] = newAll[v];   // G
-                atlasDataCPU[ptr + 3] = newSmoke[v]; // A
+                        // 3. 写入 Target (G/A) = Pending 中最新的 Sim 数据
+                        atlasDataCPU[atlasPtr + 1] = newAll[localVoxelIndex];   // G
+                        atlasDataCPU[atlasPtr + 3] = newSmoke[localVoxelIndex]; // A
+                    }
+                }
             }
         }
 
@@ -321,39 +387,17 @@ public class SmokeVolumeManager : MonoBehaviour
         smokeAtlas.SetPixelData(atlasDataCPU, 0);
         smokeAtlas.Apply();
         
-        // 重置时间轴
         lastUploadTime = Time.time;
         isTextureDirty = false;
         
-        // 立即重置插值因子，开始新一轮混合
         Shader.SetGlobalFloat(_InterpolationT, 0f);
         currentInterpolationT = 0f;
     }
 
     void SortAndUploadVolumes()
     {
-        // // 确保非活跃槽位数据清空
-        // for (int i = 0; i < MAX_SMOKE_COUNT; i++)
-        // {
-        //     if (!slots[i].active)
-        //     {
-        //         metadataArray[i].intensity = 0;
-        //         metadataArray[i].volumeIndex = -1;
-        //     }
-        // }
-        // metadataBuffer.SetData(metadataArray);
-
-        // if (smokeMaskMaterial != null)
-        // {
-        //     //smokeMaskMaterial.SetBuffer(_SmokeVolumes, metadataBuffer);
-        //     smokeMaskMaterial.SetInt(_SmokeCount, MAX_SMOKE_COUNT);
-        //     smokeMaskMaterial.SetTexture(_SmokeTex3D, smokeAtlas);
-        // }
-        //
-        // Shader.SetGlobalBuffer(_SmokeVolumes, metadataBuffer);
         Shader.SetGlobalInt(_SmokeCount, MAX_SMOKE_COUNT);
         Shader.SetGlobalTexture(_SmokeTex3D, smokeAtlas);   
-        
         
         dataArray[0] = cpuData;
         sceneUniformBuffer.SetData(dataArray);

@@ -3,7 +3,7 @@ Shader "Unlit/SmokeMask"
     Properties
     {
         //string here could be the default value
-        _SmokeTex3D ("Smoke 3D Texture", 3D) = "" {}
+        _CS2SmokeTex3D ("Smoke 3D Texture", 3D) = "" {}
         _MaxDDASteps ("Max DDA Steps", Integer) = 32
     }
     SubShader
@@ -64,8 +64,8 @@ Shader "Unlit/SmokeMask"
             CBUFFER_END
             
             int _SmokeCount;
-            Texture3D _SmokeTex3D;
-            SamplerState sampler_SmokeTex3D;
+            Texture3D _CS2SmokeTex3D;
+            SamplerState sampler_CS2SmokeTex3D;
 
             uint _MaxDDASteps;
 
@@ -118,6 +118,11 @@ Shader "Unlit/SmokeMask"
                 float3 cameraPos = _CameraPosition;
                 float3 rayDir = normalize(worldPosition - cameraPos);
                 float maxDist = length(worldPosition - cameraPos);
+                float viewZ = LinearEyeDepth(rawDepth, _ZBufferParams);
+                //float rayDotCameraForward = dot(_CameraForward, rayDirection);
+                //float sceneSurfaceDistance = viewZ / rayDotCameraForward;
+                
+                //float maxRayDistance = 1.0 / (linearDepth * cosAngle);
 
                 //return float4(_SmokeCount / 16.0, 0, 0, 1);
                 
@@ -155,17 +160,17 @@ Shader "Unlit/SmokeMask"
                         float3 pos = volumeCenters[i].xyz;
                         
                         if (TraverseVoxels(
-                            _SmokeTex3D,
-                            sampler_SmokeTex3D,
+                            _CS2SmokeTex3D,
+                            sampler_CS2SmokeTex3D,
                             startPos,
                             rayDir,
                             maxTraverseDist,
                             pos,
                             slotIndex,
                             _VolumeSize,
-                            VOXEL_RESOLUTION,
-                            ATLAS_DEPTH,
-                            VOXEL_RESOLUTION,
+                            VOLUME_RESOLUTION,
+                            DENSITY_ATLAS_WIDTH_INV,
+                            VOLUME_RESOLUTION,
                             _MaxDDASteps
                         ))
                         {

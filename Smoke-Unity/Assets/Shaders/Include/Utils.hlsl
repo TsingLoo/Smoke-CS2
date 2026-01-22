@@ -225,28 +225,24 @@ float2 rayBoxIntersection(float3 invRayDir, float3 rayOrigin, float3 boxMin, flo
 float4 SampleSmokeAtUVW(
     Texture3D smokeTex,
     SamplerState smokeSampler,
-    float3 uvw,
-    int volumeIndex, 
-    float voxelResolution,
-    float atlasSliceWidth,
-    float atlasTextureWidthInv
+    float3 uvw,           // 传入的本地 [0, 1] 坐标
+    int volumeIndex
 )
 {
-    // Check bounds
+    // 1. 边界检查
     if (any(uvw < 0.0) || any(uvw > 1.0))
         return 0.0;
 
-    //  Calculate UVW in altas space
-    float3 sampleUVW = CalculateAtlasUVW(
-        uvw, 
-        volumeIndex, 
-        voxelResolution, 
-        atlasSliceWidth, 
-        atlasTextureWidthInv
-    );
+    // 2. 修正计算逻辑
+    // 将 localU 映射到 Atlas 里的像素位置，然后整体转为归一化坐标
+    float pixelX = (float)volumeIndex * DENSITY_PAGE_STRIDE + (uvw.x * SINGLE_VOLUME_TILE_SIZE);
     
-    // Sample
-    return smokeTex.SampleLevel(smokeSampler, sampleUVW, 0);
+    // 关键修正：将结果存入新的变量，不要污染传入的 uvw.yz
+    float3 atlasUVW = uvw;
+    atlasUVW.x = pixelX;
+    
+    // 3. 采样 (使用 SampleLevel 避免导数计算问题)
+    return smokeTex.SampleLevel(smokeSampler, atlasUVW, 0);
 }
 
 /// 
@@ -285,10 +281,7 @@ float4 SampleSmokeDensity(
         smokeTex, 
         smokeSampler, 
         uvw, 
-        volumeIndex, 
-        voxelResolution, 
-        atlasSliceWidth, 
-        1.0 / atlasTextureWidth
+        volumeIndex
     );
 }
 
@@ -307,7 +300,7 @@ float GetSmokeDensity(
     float4 smokeData = SampleSmokeDensity(
         smokeTex, samplerSmoke,
         samplePos, smoke.position, smoke.volumeIndex,
-        volumeSize, VOXEL_RESOLUTION, ATLAS_DEPTH, VOXEL_RESOLUTION, rawUVW
+        volumeSize, VOLUME_RESOLUTION, DENSITY_ATLAS_WIDTH, VOLUME_RESOLUTION, rawUVW
     );
 
     float baseDensity = lerp( smokeData.x, smokeData.y, interpolationT);
@@ -444,6 +437,7 @@ bool TraverseVoxels(
     uint maxDDASteps
 )
 {
+    
     float halfVolumeSize = volumeSize * 0.5;
     float voxelSize = volumeSize / voxelResolution;
     float worldToVoxel = 1.0 / voxelSize;
@@ -464,20 +458,26 @@ bool TraverseVoxels(
     [loop]
     for (uint i = 0; i < maxDDASteps; i++)
     {
+        //float3 uvw = float3(currentVoxel) * voxelToNormalized;
+        float3 normalizedCoord = float3(currentVoxel) * voxelToNormalized;
+        float3 clampedCoord = saturate(normalizedCoord);
+        if (length(clampedCoord - normalizedCoord) > 0.0001)
+        {
+            break;  // 超出范围
+        }
 
-        float3 uvw = float3(currentVoxel) * voxelToNormalized;
         
-        float4 smokeData = SampleSmokeAtUVW(
-            smokeTex, 
-            smokeSampler, 
-            uvw, 
-            volumeIndex, 
-            voxelResolution, 
-            atlasSliceWidth, 
-            atlasWidthInv
-        );
+        int3 curr = currentVoxel;
 
-        float density = smokeData.r;
+        // 直接根据整数坐标计算 Atlas U
+        // (VolumeID * 34) + currX + 0.5 偏移
+        float atlasU = (volumeIndex * DENSITY_PAGE_STRIDE + curr.x + 0.5) * DENSITY_ATLAS_WIDTH_INV;
+        float atlasV = (curr.y + 0.5) / SINGLE_VOLUME_TILE_SIZE;
+        float atlasW = (curr.z + 0.5) / SINGLE_VOLUME_TILE_SIZE;
+        
+        float4 smokeData = smokeTex.SampleLevel(smokeSampler, float3(atlasU, atlasV, atlasW), 0);
+
+        float density = smokeData.x;
         
         if (any(density > 0.0))
         {
@@ -495,6 +495,7 @@ bool TraverseVoxels(
     return false;
 }
 
+
 bool TraverseVoxelsWithNoise(
     Texture3D smokeTex,
     SamplerState smokeSampler,
@@ -507,8 +508,6 @@ bool TraverseVoxelsWithNoise(
     int volumeIndex,
     float volumeSize,
     float voxelResolution,
-    float atlasTextureWidth,
-    float atlasSliceWidth,
     uint maxDDASteps,
     float time,
     float noiseSpeed,
@@ -522,39 +521,48 @@ bool TraverseVoxelsWithNoise(
     float worldToVoxel = 1.0 / voxelSize;
     float voxelToNormalized = 1.0 / voxelResolution;
     float maxVoxelIndex = voxelResolution - 1.0;
-    float atlasWidthInv = 1.0 / atlasTextureWidth;
     
+    // 1. 计算本地 Voxel 坐标
     float3 localPos = (startPos - volumeCenter) + halfVolumeSize;
     float3 voxelPos = localPos * worldToVoxel;
     voxelPos = clamp(voxelPos, 0.0, maxVoxelIndex);
     
     int3 currentVoxel = int3(floor(voxelPos));
     int3 voxelStep = int3(sign(rayDir));
-    float3 rayStepSize = abs(length(rayDir) / (rayDir + 1e-5));
+    float3 rayStepSize = abs(1.0 / (rayDir + 1e-5)); // 步进斜率
+    
     float3 stepDir = float3(voxelStep);
     float3 tDelta = ((stepDir * (float3(currentVoxel) - voxelPos)) + (stepDir * 0.5) + 0.5) * rayStepSize;
     
     [loop]
     for (uint i = 0; i < maxDDASteps; i++)
     {
-        float3 uvw = float3(currentVoxel) * voxelToNormalized;
+        // --- 核心修改：计算 X 轴堆叠的全局 UVW ---
+        // currentVoxel 是 0-31 的本地整数坐标
         
-        float4 smokeData = SampleSmokeAtUVW(
-            smokeTex, 
-            smokeSampler, 
-            uvw, 
-            volumeIndex, 
-            voxelResolution, 
-            atlasSliceWidth, 
-            atlasWidthInv
-        );
+        // 计算全局像素坐标 X (包含 Stride)
+        float globalPixelX = (float)volumeIndex * (voxelResolution + 2.0) + (float)currentVoxel.x;
+        
+        // 映射到全局 UVW [0, 1]
+        // 使用 +0.5 偏移以确保采样在像素中心，防止浮点数误差导致的边缘渗漏
+        float3 atlasUVW;
+        atlasUVW.x = (globalPixelX + 0.5) / DENSITY_ATLAS_WIDTH; 
+        atlasUVW.y = ((float)currentVoxel.y + 0.5) / voxelResolution;
+        atlasUVW.z = ((float)currentVoxel.z + 0.5) / voxelResolution;
 
-        float baseDensity = smokeData.r;
+        // 采样 Texture3D
+        float4 smokeData = smokeTex.SampleLevel(smokeSampler, atlasUVW, 0);
+
+        // 注意：根据你之前的 C# 脚本，R/G 通道存的是 All Density，B/A 存的是 Smoke
+        // 如果你做了插值混合，这里应该是：lerp(smokeData.r, smokeData.g, _SmokeInterpolationT)
+        float baseDensity = smokeData.r; // 这里示例取 Target All (G通道)
         
         if (baseDensity > 0.01)
         {
+            // 噪声计算（使用 local uvw，保证噪声随烟雾移动）
+            float3 localUVW = (float3)currentVoxel * voxelToNormalized;
             float animTime = time * noiseSpeed;
-            float3 noiseUVW = uvw * noiseScale;
+            float3 noiseUVW = localUVW * noiseScale;
             float4 noiseData = noiseTex.SampleLevel(noiseSampler, noiseUVW + animTime, 0);
             float noiseValue = noiseData.r * 0.8 + noiseData.b * 0.2;
             
@@ -566,12 +574,16 @@ bool TraverseVoxelsWithNoise(
             }
         }
 
-        float distTraveled = length((float3(currentVoxel) * voxelSize) - localPos);
-        if (distTraveled > maxDist) break;
-
+        // DDA 步进逻辑
         float3 mask = step(tDelta.xyz, min(tDelta.yzx, tDelta.zxy));
         tDelta += mask * rayStepSize;
         currentVoxel += int3(mask) * voxelStep;
+
+        // 边界检查
+        if (any(currentVoxel < 0) || any(currentVoxel >= (int)voxelResolution)) break;
+        
+        float distTraveled = length(((float3(currentVoxel) + 0.5) * voxelSize) - localPos);
+        if (distTraveled > maxDist) break;
     }
     
     return false;
@@ -652,247 +664,13 @@ float ExtractDensity(float4 noiseSample)
     return (noiseSample.x + noiseSample.y * 0.95) * 4.6;
 }
 
-// CS2风格的完整密度采样函数
-float GetSmokeDensityCS2(
-    float3 samplePos, 
-    SmokeVolume smoke, 
-    Texture3D smokeTex, SamplerState samplerSmoke,
-    Texture3D noiseTex, SamplerState samplerNoise,
-    float volumeSize, 
-    float time,
-    float noiseScale1,
-    float noiseScale2,
-    float noiseGamma,
-    float noiseBias,
-    float noiseColorA,
-    float noiseColorB,
-    float noiseBlendFactor,
-    float normalStrength1,
-    float normalStrength2,
-    float warpStrength,
-    float scrollSpeed,
-    float densityMultiplier,
-    float interpolationT,
-    out float3 finalNormal
-)
-{
-    // ========== 1. 采样基础密度场 ==========
-    float3 rawUVW;
-    float4 smokeData = SampleSmokeDensity(
-        smokeTex, samplerSmoke,
-        samplePos, smoke.position, smoke.volumeIndex,
-        volumeSize, VOXEL_RESOLUTION, ATLAS_DEPTH, VOXEL_RESOLUTION, rawUVW
-    );
-    
-    float baseDensity = lerp(smokeData.x, smokeData.y, interpolationT);
-    if (baseDensity <= 0.001)
-    {
-        finalNormal = float3(0, 0, 1);
-        return 0.0;
-    }
-    
-    // ========== 2. CS2风格坐标变换 ==========
-    float3 localUVW = rawUVW - 0.5;  // [-0.5, 0.5]
-    float3 scaledCoord = localUVW * 7.0;  // [-3.5, 3.5]
-    
-    float timeVal = time * scrollSpeed;
-    
-    // 2.1 基于时间和高度的旋转角度
-    float rotAngle = (timeVal * 0.04) + 
-        ((0.2 + (sin(scaledCoord.z * 5.0) + 0.5) * 0.15) * 
-         sin(timeVal * 0.5 + 0.5) * 
-         sin(timeVal * 0.187 + 0.5)) * 0.2;
-    
-    // 2.2 XY平面旋转
-    float s = sin(rotAngle);
-    float c = cos(rotAngle);
-    float2 rotatedXY = float2(
-        scaledCoord.x * c - scaledCoord.y * s,
-        scaledCoord.x * s + scaledCoord.y * c
-    );
-    scaledCoord.x = rotatedXY.x;
-    scaledCoord.y = rotatedXY.y;
-    
-    // 2.3 正弦波扰动
-    float timePhase = timeVal + sin(timeVal * 0.5) * 0.02;
-    scaledCoord.x += sin(timePhase + scaledCoord.z * 2.7) * 0.05;
-    scaledCoord.z += cos(timePhase + scaledCoord.x * 2.7) * 0.05;
-    scaledCoord.z += (sin(scaledCoord.x * 3.0 + timeVal * 0.35) + 
-                      sin(scaledCoord.y * 2.84 + timeVal * 0.235)) * 0.05;
-    
-    // ========== 3. 第一层噪声采样 ==========
-    float3 layer1Coord = scaledCoord * noiseScale1;
-    float3 timeOffset = float3(2.0, 2.0, 4.5) * (timeVal * 0.1);
-    
-    // 法线偏移方向（简化版，你可以用viewMatrix变换）
-    float3 offsetX = float3(0.2, 0.0, 0.0);
-    float3 offsetY = float3(0.0, 0.2, 0.0);
-    
-    // 中心点采样
-    float4 noise1Center = SampleNoiseCS2(noiseTex, samplerNoise, layer1Coord, timeOffset,
-                                          noiseGamma, noiseColorA, noiseColorB, noiseBlendFactor);
-    float density1 = ExtractDensity(noise1Center);
-    
-    // X偏移采样
-    float4 noise1X = SampleNoiseCS2(noiseTex, samplerNoise, layer1Coord + offsetX, timeOffset,
-                                     noiseGamma, noiseColorA, noiseColorB, noiseBlendFactor);
-    float density1X = ExtractDensity(noise1X);
-    
-    // Y偏移采样
-    float4 noise1Y = SampleNoiseCS2(noiseTex, samplerNoise, layer1Coord + offsetY, timeOffset,
-                                     noiseGamma, noiseColorA, noiseColorB, noiseBlendFactor);
-    float density1Y = ExtractDensity(noise1Y);
-    
-    // 第一层法线
-    float normalZ = 0.8 / noiseScale1;
-    float3 normal1 = normalize(float3(
-        density1 - density1X,
-        density1 - density1Y,
-        normalZ
-    ));
-    
-    // ========== 4. 坐标扭曲（用第一层结果影响第二层） ==========
-    float3 layer2Coord = scaledCoord;
-    
-    // 法线驱动的偏移
-    float3 normalOffset = (normal1 + float3(0, 0, 1)) * pow(density1, 0.1) * warpStrength * 0.2;
-    layer2Coord += normalOffset;
-    
-    // 密度驱动的膨胀
-    float3 expansionOffset = float3(2.0, 2.0, 4.5) * ((density1 - 1.0) * 0.2 * warpStrength * localUVW.z);
-    layer2Coord += expansionOffset;
-    
-    // 额外的Z扰动
-    layer2Coord.x += sin(scaledCoord.z + timeVal * 0.25) * 0.05;
-    
-    // 应用第二层缩放
-    layer2Coord *= noiseScale2;
-    
-    // ========== 5. 第二层噪声采样 ==========
-    // 第二层不减去时间偏移（使用不同的动画模式）
-    float4 noise2Center = SampleNoiseCS2(noiseTex, samplerNoise, layer2Coord, float3(0,0,0),
-                                          noiseGamma, noiseColorA, noiseColorB, noiseBlendFactor);
-    float density2 = ExtractDensity(noise2Center);
-    
-    float4 noise2X = SampleNoiseCS2(noiseTex, samplerNoise, layer2Coord + offsetX, float3(0,0,0),
-                                     noiseGamma, noiseColorA, noiseColorB, noiseBlendFactor);
-    float density2X = ExtractDensity(noise2X);
-    
-    float4 noise2Y = SampleNoiseCS2(noiseTex, samplerNoise, layer2Coord + offsetY, float3(0,0,0),
-                                     noiseGamma, noiseColorA, noiseColorB, noiseBlendFactor);
-    float density2Y = ExtractDensity(noise2Y);
-    
-    // 第二层法线
-    float3 normal2 = normalize(float3(
-        density2 - density2X,
-        density2 - density2Y,
-        normalZ
-    ));
-    
-    // ========== 6. 混合法线 ==========
-    finalNormal = normalize(
-        normal1 * normalStrength1 + 
-        normal2 * normalStrength2 * lerp(0.5, 1.0, saturate(density1 - 0.5)) +
-        float3(0, 0, 1)
-    );
-    
-    // ========== 7. CS2风格的密度混合（侵蚀） ==========
-    // 视角因子（简化版）
-    float viewFactor = 0.5;
-    
-    // 双层噪声贡献
-    float noiseContribution = 
-        lerp(0.95, saturate(density1), normalStrength1) +
-        lerp(0.95, saturate(density2), viewFactor * 0.25) +
-        noiseBias;
-    
-    // CS2的核心侵蚀公式
-    float erodedDensity = lerp(
-        baseDensity - (1.0 - noiseContribution),  // 边缘：减法侵蚀
-        baseDensity + noiseContribution,           // 核心：加法增强
-        baseDensity                                // 以原始密度为权重
-    );
-    
-    // 强度调制
-    erodedDensity *= saturate(smoke.intensity * 8.0);
-    
-    // ========== 8. 最终输出 ==========
-    return saturate(erodedDensity * densityMultiplier);
-}
-
-float GetSmokeDensityWithGradientCS2(
-    float gradientOffset,
-    float3 worldPos, 
-    SmokeVolume smoke,
-    Texture3D smokeTex, 
-    SamplerState smokeSampler,
-    Texture3D noiseTex, 
-    SamplerState noiseSampler,
-    float volumeSize, 
-    float time,
-    float noiseScale1,
-    float noiseScale2,
-    float noiseGamma,
-    float noiseBias,
-    float noiseColorA,
-    float noiseColorB,
-    float noiseBlendFactor,
-    float normalStrength1,
-    float normalStrength2,
-    float warpStrength,
-    float scrollSpeed,
-    float densityMult,
-    float interpolationT,
-    out float3 baseUVW,
-    out float3 densityGradient
-)
-{
-    float3 noiseNormal;
-    
-    float finalDensity = GetSmokeDensityCS2(
-        worldPos, smoke, 
-        smokeTex, smokeSampler,
-        noiseTex, noiseSampler,
-        volumeSize, time,
-        noiseScale1, noiseScale2,
-        noiseGamma, noiseBias,
-        noiseColorA, noiseColorB, noiseBlendFactor,
-        normalStrength1, normalStrength2,
-        warpStrength, scrollSpeed,
-        densityMult, interpolationT,
-        noiseNormal
-    );
-
-    float3 localPos = worldPos - smoke.position;
-    baseUVW = (localPos / volumeSize) + 0.5;
-    
-    // 直接使用噪声计算的法线，而不是重新采样
-    densityGradient = noiseNormal;
-    
-    return finalDensity;
-}
 
 /// 
 /// @return the origin is a corner
 float3 GetVolumeLocalUVW(float3 worldPos, float3 volumeCenter, out float3 localUVW)
 {
-    localUVW = clamp(((worldPos - volumeCenter) * VOXEL_WORLD_SIZE_INV) + 0.5, 0.0, 1.0);
+    localUVW = clamp(((worldPos - volumeCenter) * VOLUME_WORLD_SIZE_INV) + 0.5, 0.0, 1.0);
     return localUVW;
-}
-
-float4 SampleSmokeTexture(float3 sampleUVW, Texture3D tex, SamplerState texSampler, int slotIndex, float volumeBlend, out float sampledDensityMin, out float sampledDensityMax)
-{
-    float densityUOffset = VOXEL_RESOLUTION * slotIndex;
-    sampleUVW.z = (densityUOffset + (sampleUVW.z * VOXEL_RESOLUTION)) * ATLAS_DEPTH_INV ;
-    
-    float4 densityLookup = tex.SampleLevel(texSampler, sampleUVW, 0);
-    float2 densityMinMax = lerp(densityLookup.xz, densityLookup.yw, float2(volumeBlend, volumeBlend));
-    sampledDensityMin = densityMinMax.x;
-    sampledDensityMax = densityMinMax.y;
-    //return float4(sampleUVW.x , sampleUVW.y , sampleUVW.z , 1.0f);
-    return SampleSmokeAtUVW(tex, texSampler, sampleUVW, 0, VOXEL_RESOLUTION, ATLAS_DEPTH, ATLAS_DEPTH_INV );
-    
-    return densityLookup;
 }
 
 #endif

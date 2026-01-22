@@ -10,7 +10,6 @@
 
 #define DEBUG_PINK_COLOR float4(1.0f, 0.0f, 1.0f, 1.0f)
 
-#define WORLD_SCALE_FACTOR          0.01875
 
 // ============================================================================
 // VOLUME CONFIGURATION
@@ -20,15 +19,31 @@
 #define HOLE_NOISE_STRENGTH         1.2
 #define HOLE_NOISE_SCROLL           0.5
 
-#define VOLUME_TILE_SIZE            32.0
 
-static const float VOXEL_RESOLUTION = VOLUME_TILE_SIZE;
-static const float VOXEL_RESOLUTION_INV = 1.0 / VOXEL_RESOLUTION;
-static const float VOXEL_WORLD_SIZE = 12.0;
-static const float VOXEL_WORLD_SIZE_INV = 1.0 / VOXEL_WORLD_SIZE;
+#define VOLUME_CENTER_OFFSET        16.0                // offset to center volume
+#define VOLUME_UVW_SCALE            0.03125             // 1/32 - local to UVW
+#define SINGLE_VOLUME_TILE_SIZE     32.0                // texture tile dimension
+//#define DENSITY_ATLAS_WIDE_INV      0.0018450184725224971771240234375  // 1/542
+#define DENSITY_PAGE_STRIDE         34.0                // U offset per density page
+
+static const float VOLUME_WORLD_SIZE = 14.0;
+static const float CS2_VOLUME_WORLD_SIZE = 640.0;
+
+static const float VOLUME_RESOLUTION = SINGLE_VOLUME_TILE_SIZE;
+static const float VOLUME_RESOLUTION_INV = 1.0 / VOLUME_RESOLUTION;
+static const float WORLD_POS_TO_VOXEL_COORD = VOLUME_RESOLUTION / VOLUME_WORLD_SIZE;
+
+static const float VOLUME_WORLD_SIZE_INV = 1.0 / VOLUME_WORLD_SIZE;
 static const float MAX_SMOKE_COUNT = 16.0;
-static const float ATLAS_DEPTH = VOXEL_RESOLUTION * MAX_SMOKE_COUNT;
-static const float ATLAS_DEPTH_INV = 1.0f / ATLAS_DEPTH;
+
+static const float SINGLE_GRID_WIDTH = VOLUME_WORLD_SIZE / SINGLE_VOLUME_TILE_SIZE;
+static const float VOLUME_LOCAL_SCALE = 1.0 / SINGLE_GRID_WIDTH;
+
+static const float DENSITY_ATLAS_WIDTH = (SINGLE_VOLUME_TILE_SIZE * MAX_SMOKE_COUNT) + ((MAX_SMOKE_COUNT - 1) * 2);
+static const float DENSITY_ATLAS_WIDTH_INV = 1.0 / DENSITY_ATLAS_WIDTH;
+
+//14/640 0.021875
+static const float RAW_CS2_DISTANCE_TO_UNITY = VOLUME_WORLD_SIZE / CS2_VOLUME_WORLD_SIZE;
 
 // ============================================================================
 // ARRAY / LOOP LIMITS
@@ -39,14 +54,6 @@ static const float ATLAS_DEPTH_INV = 1.0f / ATLAS_DEPTH;
 #define MAX_ACTIVE_VOLUMES          1u
 #define MAX_MARCH_STEPS             500
 #define MOMENT_LOOP_COUNT           4
-
-// ============================================================================
-// VOLUME SAMPLING
-// ============================================================================
-
-#define VOLUME_CENTER_OFFSET        16.0                // (legacy, not used with new UV function)
-#define DENSITY_ATLAS_U_SCALE       0.0018450184725224971771240234375  // 1/542
-#define DENSITY_PAGE_STRIDE         32.0                // U offset per density page
 
 // ============================================================================
 // RAY MARCHING
@@ -62,8 +69,8 @@ static const float ATLAS_DEPTH_INV = 1.0f / ATLAS_DEPTH;
 // NOISE SAMPLING (UV space - no change needed)
 // ============================================================================
 
-#define NOISE_TEXTURE_SCALE         2.0                // high-freq noise UV scale
-#define NOISE_COORD_SCALE           4.0                 // volume to noise space
+#define NOISE_TEXTURE_SCALE         0.07                // high-freq noise UV scale
+#define NOISE_COORD_SCALE           7                 // volume to noise space
 #define NOISE_CHANNEL_WEIGHT        0.95                // secondary channel weight
 #define NOISE_COMBINE_MULTIPLIER    4.6                 // final noise amplitude
 #define NORMAL_GRAD_STEP_BASE       0.8                 // base value for normal gradient
@@ -90,7 +97,7 @@ static const float ATLAS_DEPTH_INV = 1.0f / ATLAS_DEPTH;
 #define MIN_DENSITY_THRESHOLD       0.01                // ~0.01
 #define EPSILON                     0.0001              // ~0.0001
 #define MAX_CLAMP_VALUE             0.9999              // ~0.9999
-#define FIRST_PASS_WEIGHT           0.375 *    25        // sample weight for main pass
+#define FIRST_PASS_WEIGHT           0.375 * 25        // sample weight for main pass
 #define SECOND_PASS_WEIGHT          0.235 * 25          // sample weight for second pass
 
 // ============================================================================
@@ -106,8 +113,8 @@ static const float ATLAS_DEPTH_INV = 1.0f / ATLAS_DEPTH;
 #define DISSIP_FADE_FAR             4.5                 // (original 240.0 × 0.01875)
 #define SURFACE_PROX_THRESHOLD      0.9                 // (original 48.0 × 0.01875)
 #define SURFACE_PROX_SCALE          1.111               // 1/0.9
-#define DENSITY_BLEND_NEAR          0.19                // (original 10.0 × 0.01875)
-#define DENSITY_BLEND_FAR           0.75                // (original 40.0 × 0.01875)
+#define DENSITY_BLEND_NEAR          10 * RAW_CS2_DISTANCE_TO_UNITY                // (original 10.0 × 0.01875)
+#define DENSITY_BLEND_FAR           40 * RAW_CS2_DISTANCE_TO_UNITY                // (original 40.0 × 0.01875)
 #define CAMERA_DIST_SCALE           5.33                // (original 0.1 / 0.01875) - inverse scale
 #define DEPTH_FADE_DIST_SCALE       0.267               // (original 0.005 / 0.01875) - inverse scale
 
@@ -169,8 +176,8 @@ static const float ATLAS_DEPTH_INV = 1.0f / ATLAS_DEPTH;
 
 #define JITTER_MIN_BLEND            0.1                 // minimum jitter blend
 #define JITTER_MAX_BLEND            0.8                 // maximum jitter blend
-#define JITTER_DIST_OFFSET          2.8                 // (original 150.0 × 0.01875)
-#define JITTER_DIST_SCALE           2.67                // (original 0.05 / 0.01875) - inverse scale
+#define JITTER_DIST_OFFSET          150.0 * RAW_CS2_DISTANCE_TO_UNITY                 // (original 150.0 × 0.01875)
+#define JITTER_DIST_SCALE           WORLD_POS_TO_VOXEL_COORD                // (original 0.05 / 0.01875) - inverse scale
 
 // ============================================================================
 // TRACER ANIMATION (no change needed)

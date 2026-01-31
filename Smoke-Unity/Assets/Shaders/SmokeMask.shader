@@ -60,7 +60,9 @@ Shader "Unlit/SmokeMask"
                 uint activeTracerCount;
                 float animationTime;
                 uint enableExplosions;
-                
+
+                float3 _CameraForward;
+            
             CBUFFER_END
             
             int _SmokeCount;
@@ -108,7 +110,7 @@ Shader "Unlit/SmokeMask"
                 float4 ndc = float4(
                     input.uv.x * 2.0 - 1.0,
                     (1.0 - input.uv.y) * 2.0 - 1.0,
-                    rawDepth,
+                    1.0,
                     1.0
                 );
                 
@@ -117,8 +119,10 @@ Shader "Unlit/SmokeMask"
 
                 float3 cameraPos = _CameraPosition;
                 float3 rayDir = normalize(worldPosition - cameraPos);
-                float maxDist = length(worldPosition - cameraPos);
+                //float3 cameraForward = -UNITY_MATRIX_V[2].xyz; // 或者传入 _CameraForward
+                float cosAngle = dot(_CameraForward, rayDir);
                 float viewZ = LinearEyeDepth(rawDepth, _ZBufferParams);
+                float maxDist = viewZ / max(cosAngle, 0.001);
                 //float rayDotCameraForward = dot(_CameraForward, rayDirection);
                 //float sceneSurfaceDistance = viewZ / rayDotCameraForward;
                 

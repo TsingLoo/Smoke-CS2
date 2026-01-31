@@ -44,6 +44,7 @@ static const float DENSITY_ATLAS_WIDTH_INV = 1.0 / DENSITY_ATLAS_WIDTH;
 
 //14/640 0.021875
 static const float RAW_CS2_DISTANCE_TO_UNITY = VOLUME_WORLD_SIZE / CS2_VOLUME_WORLD_SIZE;
+static const float RAW_CS2_DISTANCE_TO_UNITY_INV = 1 / RAW_CS2_DISTANCE_TO_UNITY;
 
 // ============================================================================
 // ARRAY / LOOP LIMITS
@@ -59,9 +60,9 @@ static const float RAW_CS2_DISTANCE_TO_UNITY = VOLUME_WORLD_SIZE / CS2_VOLUME_WO
 // RAY MARCHING
 // ============================================================================
 
-#define RAY_NEAR_CLIP_OFFSET        0.05                // minimum ray start distance
-#define SCENE_DEPTH_OFFSET          0.01                // offset from scene depth
-#define OCCLUSION_DEPTH_THRESHOLD   0.19                // (original 10.0 × 0.01875)
+#define RAY_NEAR_CLIP_OFFSET        4.0  *  RAW_CS2_DISTANCE_TO_UNITY                // minimum ray start distance
+#define SCENE_DEPTH_OFFSET          2.0  *  RAW_CS2_DISTANCE_TO_UNITY                // offset from scene depth
+#define OCCLUSION_DEPTH_THRESHOLD   10.0 *  RAW_CS2_DISTANCE_TO_UNITY                // (original 10.0 × 0.01875)
 #define STEP_DISTANCE_MULTIPLIER    1.5                 // base step size modifier
 #define STEP_COUNT_PADDING          10.0                // extra steps for safety
 
@@ -70,7 +71,7 @@ static const float RAW_CS2_DISTANCE_TO_UNITY = VOLUME_WORLD_SIZE / CS2_VOLUME_WO
 // ============================================================================
 
 #define NOISE_TEXTURE_SCALE         0.07                // high-freq noise UV scale
-#define NOISE_COORD_SCALE           7                 // volume to noise space
+#define NOISE_COORD_SCALE           7                   // volume to noise space
 #define NOISE_CHANNEL_WEIGHT        0.95                // secondary channel weight
 #define NOISE_COMBINE_MULTIPLIER    4.6                 // final noise amplitude
 #define NORMAL_GRAD_STEP_BASE       0.8                 // base value for normal gradient
@@ -79,7 +80,7 @@ static const float RAW_CS2_DISTANCE_TO_UNITY = VOLUME_WORLD_SIZE / CS2_VOLUME_WO
 // TIME / ANIMATION (no change needed)
 // ============================================================================
 
-#define TIME_OFFSET_SCALE           0.0                 // global time offset multiplier
+#define TIME_OFFSET_SCALE           0.1                 // global time offset multiplier
 #define ROTATION_TIME_MULT          0.5                 // rotation animation speed
 #define ROTATION_OFFSET_BASE        0.04                // base rotation offset
 #define ROTATION_MOD_FREQ           0.187               // rotation modulation frequency
@@ -97,26 +98,26 @@ static const float RAW_CS2_DISTANCE_TO_UNITY = VOLUME_WORLD_SIZE / CS2_VOLUME_WO
 #define MIN_DENSITY_THRESHOLD       0.01                // ~0.01
 #define EPSILON                     0.0001              // ~0.0001
 #define MAX_CLAMP_VALUE             0.9999              // ~0.9999
-#define FIRST_PASS_WEIGHT           0.375 * 25        // sample weight for main pass
-#define SECOND_PASS_WEIGHT          0.235 * 25          // sample weight for second pass
+#define FIRST_PASS_WEIGHT           0.375          // sample weight for main pass
+#define SECOND_PASS_WEIGHT          0.235         // sample weight for second pass
 
 // ============================================================================
 // DISTANCE THRESHOLDS (scaled for 12-unit volume)
 // ============================================================================
 
-#define TRACER_DIST_SCALE           0.10                // (original 0.05 / 0.01875) - inverse scale
-#define TRACER_OFFSET_SCALE         0.375               // (original 20.0 × 0.01875)
-#define TRACER_GLOW_POWER           64.0                // power - no change
-#define TRACER_AGE_DIST_SCALE       23.4                // (original 1250.0 × 0.01875)
-#define EXPLOSION_MAX_DIST          4.7                 // (original 250.0 × 0.01875)
-#define DISSIP_FADE_NEAR            3.75                // (original 200.0 × 0.01875)
-#define DISSIP_FADE_FAR             4.5                 // (original 240.0 × 0.01875)
-#define SURFACE_PROX_THRESHOLD      0.9                 // (original 48.0 × 0.01875)
-#define SURFACE_PROX_SCALE          1.111               // 1/0.9
-#define DENSITY_BLEND_NEAR          10 * RAW_CS2_DISTANCE_TO_UNITY                // (original 10.0 × 0.01875)
-#define DENSITY_BLEND_FAR           40 * RAW_CS2_DISTANCE_TO_UNITY                // (original 40.0 × 0.01875)
-#define CAMERA_DIST_SCALE           5.33                // (original 0.1 / 0.01875) - inverse scale
-#define DEPTH_FADE_DIST_SCALE       0.267               // (original 0.005 / 0.01875) - inverse scale
+#define NOISE_PERTURB_AMPLITUDE     0.05                
+#define TRACER_OFFSET_SCALE         20.0 * RAW_CS2_DISTANCE_TO_UNITY
+#define TRACER_GLOW_POWER           64.0                
+#define TRACER_AGE_DIST_SCALE       23.4                
+#define EXPLOSION_MAX_DIST          250.0              
+#define DISSIP_FADE_NEAR            200.0 * RAW_CS2_DISTANCE_TO_UNITY
+#define DISSIP_FADE_FAR             240.0 * RAW_CS2_DISTANCE_TO_UNITY
+#define SURFACE_PROX_THRESHOLD      0.9                 
+#define SURFACE_PROX_SCALE          1.111               
+#define DENSITY_BLEND_NEAR          10 * RAW_CS2_DISTANCE_TO_UNITY
+#define DENSITY_BLEND_FAR           40 * RAW_CS2_DISTANCE_TO_UNITY
+#define CAMERA_DIST_SCALE           0.1                
+#define DEPTH_FADE_DIST_SCALE       0.005 * RAW_CS2_DISTANCE_TO_UNITY_INV             
 
 // ============================================================================
 // LIGHTING / PHASE (ratios - no change needed)
@@ -157,8 +158,8 @@ static const float RAW_CS2_DISTANCE_TO_UNITY = VOLUME_WORLD_SIZE / CS2_VOLUME_WO
 #define SHADOW_AMOUNT_SCALE         0.85                // shadow amount color multiplier
 #define HEIGHT_FADE_DENSITY_MULT    2.4                 // height fade contrast
 #define HEIGHT_TEST_Z_SCALE         1.2                 // height test position scale
-#define NORMAL_DIST_SCALE           0.267               // (original 0.005 / 0.01875) - inverse scale
-#define CAMERA_RIGHT_OFFSET         0.2                 // camera vector offsets for normals
+#define NORMAL_DIST_SCALE           0.005 * RAW_CS2_DISTANCE_TO_UNITY_INV // (original 0.005 / 0.01875) - inverse scale
+#define DISTORTION_AMPLITUDE        0.2                 // camera vector offsets for normals
 #define EXPLOSION_PULSE_POWER       128.0               // explosion pulse sharpness
 
 // ============================================================================
@@ -173,6 +174,8 @@ static const float RAW_CS2_DISTANCE_TO_UNITY = VOLUME_WORLD_SIZE / CS2_VOLUME_WO
 // ============================================================================
 // JITTER / SAMPLING (scaled for 12-unit volume)
 // ============================================================================
+
+#define JITTER_SCALE                1.4
 
 #define JITTER_MIN_BLEND            0.1                 // minimum jitter blend
 #define JITTER_MAX_BLEND            0.8                 // maximum jitter blend

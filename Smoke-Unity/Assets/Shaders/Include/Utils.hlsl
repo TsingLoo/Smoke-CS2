@@ -437,13 +437,11 @@ bool TraverseVoxels(
     uint maxDDASteps
 )
 {
-    
     float halfVolumeSize = volumeSize * 0.5;
     float voxelSize = volumeSize / voxelResolution;
     float worldToVoxel = 1.0 / voxelSize;
     float voxelToNormalized = 1.0 / voxelResolution;
     float maxVoxelIndex = voxelResolution - 1.0;
-    float atlasWidthInv = 1.0 / atlasTextureWidth;
     
     float3 localPos = (startPos - volumeCenter) + halfVolumeSize;
     float3 voxelPos = localPos * worldToVoxel;
@@ -451,45 +449,70 @@ bool TraverseVoxels(
     
     int3 currentVoxel = int3(floor(voxelPos));
     int3 voxelStep = int3(sign(rayDir));
-    float3 rayStepSize = abs(length(rayDir) / (rayDir + 1e-5));
-    float3 stepDir = float3(voxelStep);
-    float3 tDelta = ((stepDir * (float3(currentVoxel) - voxelPos)) + (stepDir * 0.5) + 0.5) * rayStepSize;
+    
+    // 每个轴方向上走一个体素需要的 t 距离
+    float3 tDeltaUnit = abs(voxelSize / (rayDir + 1e-7));
+    
+    // 计算到达下一个体素边界的初始 t 值
+    float3 nextBoundary = float3(currentVoxel) + saturate(float3(voxelStep)); // 下一个边界的体素坐标
+    float3 tMax = (nextBoundary * voxelSize - localPos) / (rayDir + 1e-7);
+    
+    // 修正负方向的情况
+    tMax = abs(tMax);
     
     [loop]
     for (uint i = 0; i < maxDDASteps; i++)
     {
-        //float3 uvw = float3(currentVoxel) * voxelToNormalized;
-        float3 normalizedCoord = float3(currentVoxel) * voxelToNormalized;
-        float3 clampedCoord = saturate(normalizedCoord);
-        if (length(clampedCoord - normalizedCoord) > 0.0001)
+        // 边界检查
+        if (any(currentVoxel < 0) || any(currentVoxel >= (int)voxelResolution))
         {
-            break;  // 超出范围
+            break;
         }
 
-        
-        int3 curr = currentVoxel;
-
-        // 直接根据整数坐标计算 Atlas U
-        // (VolumeID * 34) + currX + 0.5 偏移
-        float atlasU = (volumeIndex * DENSITY_PAGE_STRIDE + curr.x + 0.5) * DENSITY_ATLAS_WIDTH_INV;
-        float atlasV = (curr.y + 0.5) / SINGLE_VOLUME_TILE_SIZE;
-        float atlasW = (curr.z + 0.5) / SINGLE_VOLUME_TILE_SIZE;
+        // 计算 Atlas 采样坐标
+        float atlasU = (volumeIndex * DENSITY_PAGE_STRIDE + currentVoxel.x + 0.5) * DENSITY_ATLAS_WIDTH_INV;
+        float atlasV = (currentVoxel.y + 0.5) / SINGLE_VOLUME_TILE_SIZE;
+        float atlasW = (currentVoxel.z + 0.5) / SINGLE_VOLUME_TILE_SIZE;
         
         float4 smokeData = smokeTex.SampleLevel(smokeSampler, float3(atlasU, atlasV, atlasW), 0);
 
-        float density = smokeData.x;
-        
-        if (any(density > 0.0))
+        if (smokeData.x > 0.0)
         {
             return true;
         }
 
-        float distTraveled = length((float3(currentVoxel) * voxelSize) - localPos);
-        if (distTraveled > maxDist) break;
+        // 距离检查
+        float distTraveled = length((float3(currentVoxel) + 0.5) * voxelSize - localPos);
+        if (distTraveled > maxDist) 
+            break;
 
-        float3 mask = step(tDelta.xyz, min(tDelta.yzx, tDelta.zxy));
-        tDelta += mask * rayStepSize;
-        currentVoxel += int3(mask) * voxelStep;
+        // DDA 步进：只允许一个轴前进，避免对角线跳跃
+        if (tMax.x < tMax.y)
+        {
+            if (tMax.x < tMax.z)
+            {
+                currentVoxel.x += voxelStep.x;
+                tMax.x += tDeltaUnit.x;
+            }
+            else
+            {
+                currentVoxel.z += voxelStep.z;
+                tMax.z += tDeltaUnit.z;
+            }
+        }
+        else
+        {
+            if (tMax.y < tMax.z)
+            {
+                currentVoxel.y += voxelStep.y;
+                tMax.y += tDeltaUnit.y;
+            }
+            else
+            {
+                currentVoxel.z += voxelStep.z;
+                tMax.z += tDeltaUnit.z;
+            }
+        }
     }
     
     return false;

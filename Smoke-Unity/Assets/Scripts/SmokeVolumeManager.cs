@@ -252,9 +252,9 @@ public class SmokeVolumeManager : MonoBehaviour
         cpuData.volumeMinBounds[slotIndex] = pos - size * 0.5f;
         cpuData.volumeMaxBounds[slotIndex] = pos + size * 0.5f;
         cpuData.volumeCenters[slotIndex] = pos;
-        cpuData.volumeAnimState[slotIndex] = new Vector4(2.0f, 0.5f, slotIndex, 0.0f); 
+        cpuData.volumeAnimState[slotIndex] = new Vector4(3.28284f, 0.01587f, 0.0f, 0.03823f); 
         cpuData.volumeTintColor[slotIndex] = tint;
-        cpuData.volumeFadeParams[slotIndex] = new Vector4(1.0f, 0.5f, 0.5f, 1.0f);
+        cpuData.volumeFadeParams[slotIndex] = new Vector4(1.0f, 1.0f, 0.0f, 1.0f);
 
         Vector3 sceneMin = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
         Vector3 sceneMax = new Vector3(float.MinValue, float.MinValue, float.MinValue);

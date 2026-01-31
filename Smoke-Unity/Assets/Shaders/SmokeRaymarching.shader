@@ -301,20 +301,8 @@ Shader "Unlit/SmokeRaymarching"
                 inout float stepLightEnergy,
                 inout float stepFogDensity)
             {
-                //currentMarchPos = float3(-282.625, -119.25, -1783.00) * RAW_CS2_DISTANCE_TO_UNITY;
-	            //marchEndPos = float3(-621.00, -23.84375, -2000.00) * RAW_CS2_DISTANCE_TO_UNITY;
-	            //backProjectedPoint = float3(-835, -39.3125, -1883) * RAW_CS2_DISTANCE_TO_UNITY;
-	            //rayDirection = float3(-0.99756, 0.06525, -0.01563);
-	            //cameraSideVector = float3(-0.41187, 0.00, 0.91113 );
-
-                // return true;
-
-                //float3 cameraForwardVector = float3(-0.90812, -0.0817, - 0.41067);
-                //float3 cameraRightVector = float3(-0.07444, 0.99666, -0.03366);
                 float3 cameraForwardVector = UNITY_MATRIX_I_V[2].xyz;
                 float3 cameraRightVector = UNITY_MATRIX_I_V[1].xyz;
-    
-                //float3 cameraPositionVector = float3(-51.2271, -103.96875, -1643.52405);
                 
                 int volumeIdxInt = int(volumeIdx);
                 
@@ -322,109 +310,23 @@ Shader "Unlit/SmokeRaymarching"
                 float3 tracerOffsetSamplePos = currentMarchPos + ((normalize(tracerDir) * pow(cavityStrength, PHASE_POWER_2)) * TRACER_OFFSET_SCALE);
                 tracerOffsetSamplePos = currentMarchPos;
 
-                //tracerOffsetSamplePos = float3(-282.625, -119.25 , -1783.0) * RAW_CS2_DISTANCE_TO_UNITY;
-                //tracerOffsetSamplePos = float3(-282.625 , -1783.0 , -119.25) * RAW_CS2_DISTANCE_TO_UNITY;
-
                 float3 volumeCenter = volumeCenters[volumeIdxInt].xyz;
-                //volumeCenter = float3(-381.0, -173.875, -1835.0) * RAW_CS2_DISTANCE_TO_UNITY;
-                //volumeCenter = float3(-381.0, -173.875 , -1835.0) * RAW_CS2_DISTANCE_TO_UNITY;
-	            //return true;
-
                 float3 halfway = (tracerOffsetSamplePos - volumeCenter) * float3(WORLD_POS_TO_VOXEL_COORD,WORLD_POS_TO_VOXEL_COORD,WORLD_POS_TO_VOXEL_COORD);
                 
                 float3 volumeLocalPos = clamp((halfway + float3(VOLUME_CENTER_OFFSET,VOLUME_CENTER_OFFSET,VOLUME_CENTER_OFFSET)) * float3(VOLUME_UVW_SCALE,VOLUME_UVW_SCALE,VOLUME_UVW_SCALE), float3(0.0, 0.0, 0.0), float3(1.0, 1.0, 1.0));
-
-                // float3 volumeLocalPos = (((tracerOffsetSamplePos - volumeCenters[volumeIdxInt].xyz) * float3(VOXEL_WORLD_SIZE_INV,VOXEL_WORLD_SIZE_INV,VOXEL_WORLD_SIZE_INV))
-                //     + float3(VOLUME_CENTER_OFFSET,VOLUME_CENTER_OFFSET,VOLUME_CENTER_OFFSET)) * float3(VOLUME_UVW_SCALE,VOLUME_UVW_SCALE,VOLUME_UVW_SCALE);
-
-                //stepColor = float4(currentMarchPos.x, currentMarchPos.y, currentMarchPos.z, 1.0f);
-                //return true;
                 
                 float3 volumeUVW = volumeLocalPos;
 
-                
-
-                //stepColor = DEBUG_PINK_COLOR;
-                //return true;
-                
-                // if (any(volumeLocalPos) > 1.0 )
-                // {
-                //     stepColor = DEBUG_PINK_COLOR;
-                //     return true;
-                // }
-                
-                //volumeUVW.x = (densityUOffset + (volumeUVW.x * SINGLE_VOLUME_TILE_SIZE)) * DENSITY_ATLAS_WIDTH_INV;
-
-                //stepColor = float4(volumeUVW.x, volumeUVW.y, volumeUVW.z, 1.0f);
-                //stepColor = float4(normalize(float3(0.00, 1.0, 0.75195)).x, normalize(float3(0.00, 1.0, 0.75195)).y, normalize(float3(0.00, 1.0, 0.75195)).z, 1.0f);
-                //return true;
-                
-                //float3 volumeLocalPos;
-
-                //GetVolumeLocalUVW(tracerOffsetSamplePos, volumeCenters[volumeIdxInt].xyz, volumeLocalPos);
-                
-                //float3 volumeLocalPos = clamp((((tracerOffsetSamplePos - volumeCenters[volumeIdxInt].xyz) * float3(VOLUME_LOCAL_SCALE, VOLUME_LOCAL_SCALE, VOLUME_LOCAL_SCALE)) + float3(VOLUME_CENTER_OFFSET, VOLUME_CENTER_OFFSET, VOLUME_CENTER_OFFSET)) * float3(VOXEL_RESOLUTION_INV, VOXEL_RESOLUTION_INV, VOXEL_RESOLUTION_INV), float3(0.0, 0.0, 0.0), float3(1.0, 1.0, 1.0));
-
-                //float3 volumeUVW = volumeLocalPos;
-
                 float4 densitySample;
-                // Sample density
 
-                //CS2 Data
-                //volumeUVW.x = densityUOffset + (volumeLocalPos.x * 32.0 ) * 0.0018450184725224971771240234375;
-                //densitySample = _RawCS2SmokeDataTex3D.SampleLevel(sampler_RawCS2SmokeDataTex3D, volumeUVW.xyz, 0.0);
-
-                //stepColor = float4(volumeUVW.x, volumeUVW.y, volumeUVW.z, 1.0f);
-                //stepColor = float4(0.05, 0.05, 0.05, 1.0f);
-                //stepColor = float4(1.0f, 1.0f, 1.0f, 1.0f);
-                //stepColor = float4(1.0f , 0.2f, 0.1f, 1.0f);
-                //return true;
-                
                 volumeUVW.x = (densityUOffset + (volumeLocalPos.x * SINGLE_VOLUME_TILE_SIZE)) * DENSITY_ATLAS_WIDTH_INV;
 
-                
-                
-                //there is some float error right now. 
-                //stepColor = float4(volumeUVW.x,volumeUVW.y, volumeUVW.z , 1.0f);
-                //return true;
-
-                //
-                //volumeUVW = float3(0.03857, 0.58496, 1 - 0.58105);
-                //volumeUVW = float3(0.0221, 0.5313, 15.0/ 32.0);
-
-                //volumeUVW = float3(17.5/542.0, 20.5/ 32.0, 15.5/32.0);
-
-
-                
+                // Sample density                
                 densitySample = _RawCS2SmokeDataTex3D.SampleLevel(sampler_RawCS2SmokeDataTex3D, volumeUVW.xyz, 0.0);
-                //int3 texelCoord = int3(17, 20, 15);
-                //densitySample = _RawCS2SmokeDataTex3D.Load(int4(texelCoord, 0));
-                //stepColor = float4(0.5, 0.2, 0.3, 1.0f);
-                //stepColor =  pow(densitySample.rgba, 1.0 / 2.2);;
-                //stepColor = LinearToSRGB(densitySample) ;
-                //stepColor = LinearToSRGB(0.23621);
-                //stepColor =  PositivePow(0.23621, 1.0 / 2.4);
-                //stepColor =  densitySample;
-                //stepColor = float4(0.5, 0.2, 0.3, 1.0f);
-                //return true;
 
-                //stepColor = densitySample;
-                //return true;
-                 
-
-                //stepColor = float4(1.0, 0.0, 1.0, 1.0);
-                //stepColor = densitySample.xyzw;
-                //return  true;
-                //return true;
-                
-                //float2 densityChannels = lerp(densitySample.xz, densitySample.yw, float2(volumeAnimState[volumeIdx].y, volumeAnimState[volumeIdx].y));
                 float2 densityChannels = lerp(densitySample.xz, densitySample.yw, float2(volumeAnimState[volumeIdx].y, volumeAnimState[volumeIdx].y));
                 float sampledDensityMin = densityChannels.x;
                 
-                // if(sampledDensityMin < 0.005){
-		              //   stepColor = float4(1.0f, 0.2f, 0.2f, 1.0f);
-                //         return false;
-                // }
                 
                 float sampledDensityMax = densityChannels.y;
 
@@ -433,20 +335,14 @@ Shader "Unlit/SmokeRaymarching"
                 
                 float distanceToMarchEnd = distance(tracerOffsetSamplePos, marchEndPos);
                 
-                
                 float adjustedDensity = sampledDensityMax;
-
-                //stepColor = float4(sampledDensityMax,sampledDensityMax, sampledDensityMax, 1.0f);
-	            //return true;    
-
+                
                 
                 if (sampledDensityMin > sampledDensityMax)
                     adjustedDensity = lerp(sampledDensityMax, sampledDensityMin, smoothstep(DENSITY_BLEND_NEAR, DENSITY_BLEND_FAR, distanceToMarchEnd));
                 
                 float cavityDensity = clamp(lerp(adjustedDensity, -VOLUME_WORLD_SIZE_INV, cavityStrength), 0.0, 1.0);
-
-                //stepColor = float4(cavityDensity,cavityDensity, cavityDensity, 1.0f);
-	            //return true;    
+                
                 
                 if (cavityDensity <= MIN_DENSITY_THRESHOLD )
                     //stepColor = DEBUG_PINK_COLOR;
@@ -454,20 +350,7 @@ Shader "Unlit/SmokeRaymarching"
 
                 //stepColor = float4(cavityStrength,cavityStrength, cavityStrength, 1.0f);
 	            //return true;    
-
-                //stepColor = float4(sampledDensityMin,sampledDensityMin, sampledDensityMin, 1.0f);
-	            //return true;    
-
-	            //stepColor = float4(sampledDensityMin,sampledDensityMin,sampledDensityMin, 1.0f);
-	            //stepColor = vec4(0.5, 0.5,0.5,1.0f);
-	            //return true;
                 
-                //stepColor = float4(sampledDensityMin, sampledDensityMin, sampledDensityMin, 1.0f);
-	            //stepColor = vec4(0.5, 0.5,0.5,1.0f);
-	            //return true;
-                
-                // Calculate occlusion and density multiplier
-
                 
                 float occlusionDistance = max(0.0, distanceToMarchEnd - min(TRACER_OFFSET_SCALE, abs(backProjectedPoint.z - volumeCenter.z) * 2.0));
 
@@ -499,66 +382,27 @@ Shader "Unlit/SmokeRaymarching"
                 // ========== NOISE CALCULATION (FULL DETAIL) ==========
                 // _TimeScale
                 float animTime = _Time * _TimeScale;
-                //float animTime = 1753.92346  * 1.5;
-                //animTime = 2630;
                 
                 float3 volumeCenteredPos = volumeLocalPos - float3(HALF, HALF, HALF);
-
-                //stepColor = float4(volumeCenteredPos.x ,volumeCenteredPos.y ,volumeCenteredPos.z , 1.0f);
-	            //stepColor = float4(0.5, 0.5,0.5,1.0f);
-                //return true;
                 
                 float3 noiseCoord = volumeCenteredPos * NOISE_COORD_SCALE;
-                //stepColor = float4(noiseCoord.x, noiseCoord.y, noiseCoord.z, 1.0f);
-                //return true;
                 
                 float noiseY = noiseCoord.y;
-
-                //stepColor = float4(noiseY ,noiseY ,noiseY , 1.0f);
-                //stepColor = float4(volumeLocalPos.x ,volumeLocalPos.y ,volumeLocalPos.z , 1.0f);
-	            //stepColor = vec4(0.5, 0.5,0.5,1.0f);
-	            //return true;
                 
                 // Rotation
                 float rotAngle1 = animTime * ROTATION_TIME_MULT;
-                //stepColor = float4(float3(rotAngle1,rotAngle1,rotAngle1), 1.0f);
-	            //return true;  
                 
                 float rotOffset = (animTime * ROTATION_OFFSET_BASE) + ((((DISTORTION_AMPLITUDE + ((sin(noiseY * 5.0) + HALF) * 0.15)) * sin(rotAngle1 + HALF)) * sin((animTime * ROTATION_MOD_FREQ) + HALF)) * DISTORTION_AMPLITUDE);
-
-                //float tempValue  =  sin(rotAngle1 + HALF);
-                
-                //stepColor = float4(rotOffset, noiseY, rotAngle1, tempValue);
-                //return true;
                 
                 float sinRot = sin(rotOffset);
                 float cosRot = cos(rotOffset);
-
-
-
                 float2x2 rotMatrix = float2x2(cosRot, -sinRot, sinRot, cosRot);
                 float2 rotatedXZ = mul(rotMatrix, noiseCoord.xz);
-                //stepColor = float4(noiseCoord.x ,noiseCoord.z ,sinRot ,cosRot);
-                //return true;
-
                 
                 float rotatedX = rotatedXZ.x;
                 float3 noisePosTemp = noiseCoord;
                 noisePosTemp.x = rotatedX;
-                //noisePosTemp.z = rotatedXZ.y;
                 float rotatedZ = rotatedXZ.y;
-
-                //stepColor = float4(rotatedZ ,rotatedZ ,rotatedZ , 1.0f);
-                //stepColor = float4(rotatedX ,rotatedZ ,rotatedX , 1.0f);
-                //return true;
-
-                
-                //stepColor = float4(float3(rotatedXZ.xy, 1.0), 1.0f);
-                //return true;    
-
-                //stepColor = float4(noisePosTemp.x ,noisePosTemp.y ,noisePosTemp.z , 1.0f);
-	            //stepColor = vec4(0.5, 0.5,0.5,1.0f);
-	            //return true;
                 
                 // Wave perturbation
                 
@@ -576,24 +420,8 @@ Shader "Unlit/SmokeRaymarching"
                 float3 noisePosPerturbed = float3(perturbedX, perturbedY, rotatedZ);
                 float finalNoiseY = perturbedY + ((sin((perturbedX * PHASE_POWER_2) + (animTime * WAVE_ANIM_FREQ_1)) + sin((rotatedZ * 2.84) + (animTime * WAVE_ANIM_FREQ_2))) * NOISE_PERTURB_AMPLITUDE);
                 noisePosPerturbed.y = finalNoiseY;
-
-                //stepColor = float4(noisePosPerturbed.x ,noisePosPerturbed.z, noisePosPerturbed.y , 1.0f);
-                //stepColor = float4(perturbedY ,perturbedY ,perturbedY , 1.0f);
-                //return true;
-	            //stepColor = vec4(0.5, 0.5,0.5,1.0f);
-	            //return true;
                 
-                // Base noise sampling
                 float3 baseNoiseCoord = noisePosPerturbed * _Noise1Scale;
-
-                //stepColor = float4(baseNoiseCoord.x, baseNoiseCoord.z, baseNoiseCoord.y, 1.0f);
-                //return true;
-
-                //stepColor = float4(noisePosPerturbed.x ,noisePosPerturbed.y ,noisePosPerturbed.z , 1.0f);
-                //stepColor = float4(baseNoiseCoord.x ,baseNoiseCoord.y ,baseNoiseCoord.z , 1.0f);
-	            //stepColor = vec4(0.5, 0.5,0.5,1.0f);
-	            //return true;
-                
                 float3 timeOffset3D = float3(2.0, 4.5, 2.0) * (animTime * TIME_OFFSET_SCALE);
 
                 //timeOffset3D = float3(0.0, 0.0, 0.0);
@@ -605,101 +433,38 @@ Shader "Unlit/SmokeRaymarching"
                 float4 lowFreqParams = float4(_NoiseLowFreq, _NoiseLowFreq, _NoiseLowFreq, _NoiseLowFreq);
                 float4 highFreqParams = float4(_NoiseHighFreq, _NoiseHighFreq, _NoiseHighFreq, _NoiseHighFreq);
                 float4 noiseBlendParam = float4(_NoiseMixFactor, _NoiseMixFactor, _NoiseMixFactor, _NoiseMixFactor);
-
-                //baseNoiseCoord = float3(0.5f, 0.0f, 0.6f);
                 
                 float4 baseNoiseProcessed = sampleProcessedNoise(abs(baseNoiseCoord) - timeOffset3D, noisePowerVec, lowFreqParams, highFreqParams, noiseBlendParam);
                 
-                //stepColor = float4(baseNoiseProcessed.x, baseNoiseProcessed.y, baseNoiseProcessed.z , 1.0f);;
-                //return true;
-                
                 float baseNoiseCombined = combineNoiseChannels(baseNoiseProcessed);
-
-                //stepColor = float4(baseNoiseCombined, baseNoiseCombined, baseNoiseCombined, 1.0f);
-                //return true;
-
-                // - (526, 1183.00, 526.00 )
+                
                 float4 processedNoiseX = sampleProcessedNoise(abs(baseNoiseCoord + camRightOffset) - timeOffset3D, noisePowerVec, lowFreqParams, highFreqParams, noiseBlendParam);
-
-                //stepColor = float4(processedNoiseX.x,processedNoiseX.y,processedNoiseX.z,processedNoiseX.w);
-                //stepColor = float4( baseNoiseCoord.xzy, 1.0f);
-	            //return true;
                 
                 float4 processedNoiseY = sampleProcessedNoise(abs(baseNoiseCoord + camUpOffset) - timeOffset3D, noisePowerVec, lowFreqParams, highFreqParams, noiseBlendParam);
-
-                //stepColor = float4(processedNoiseY.x,processedNoiseY.y,processedNoiseY.z, processedNoiseY.w);
-	            //return true;
-                
-                
-                //stepColor = processedNoiseY;
-                //return true;
                 
                 float normalGradStep = NORMAL_GRAD_STEP_BASE / _Noise1Scale;
-
-                //stepColor = float4(combineNoiseChannels(processedNoiseX),combineNoiseChannels(processedNoiseX),combineNoiseChannels(processedNoiseX), 1.0f);
-	            //return true;
                 
                 float3 noiseNormal = normalize(float3(
                     baseNoiseCombined - combineNoiseChannels(processedNoiseY),
                     normalGradStep,
                     baseNoiseCombined - combineNoiseChannels(processedNoiseX)
                 ));
-
-                //stepColor = float4(noiseNormal, 1.0f);
-	            //return true;
-
-
-
                 
-                //stepColor = float4(noiseNormal.x, noiseNormal.y, noiseNormal.z, 1.0f);
-                //stepColor = float4(normalGradStep, normalGradStep, normalGradStep, 1.0f);
-                //return true;
-
-                
-                
-                //stepColor = float4(noiseNormal.x ,noiseNormal.y ,noiseNormal.z , 1.0f);
-                //stepColor = float4(baseNoiseCoord.x ,baseNoiseCoord.y ,baseNoiseCoord.z , 1.0f);
-	            //stepColor = vec4(0.5, 0.5,0.5,1.0f);
-	            //return true;
-                
-                // View transform and detail noise coordinate
                 float4x4 cameraToWorldMatrix = GetCameraToWorldMatrix();
-                // = float4(volumeCenteredPos.x ,volumeCenteredPos.y ,volumeCenteredPos.z , 1.0f);
-                //return true;
                 
                 float centeredPosY = volumeCenteredPos.y;
-
-
-                //noiseNormal = normalize(float3(0.1, 0.8, 0.2));
-                //noiseNormal is the same, how about viewTransform ?
+                
                 float3 detailNoiseCoord = noiseCoord
                 + mul(cameraToWorldMatrix, float4((noiseNormal + float3(0.0, 1.0, 0.0)).xyz, 0.0)).xyz * pow(baseNoiseCombined, TIME_OFFSET_SCALE) * _NormalDetailScale * DISTORTION_AMPLITUDE
                 + float3(2.0, 4.5, 2.0) * ((baseNoiseCombined - 1.0) * DISTORTION_AMPLITUDE * _NormalDetailScale * centeredPosY);
 
                 float3 temp = mul(cameraToWorldMatrix, float4((noiseNormal + float3(0.0, 1.0, 0.0)).xyz, 0.0)).xyz;
-
-                //0.49927, 0.48169, 1.76465
-                //stepColor = float4(temp.x, temp.y, temp.z, 1.0f);
-                //return temp;
                 
-                //with the override of 
                 detailNoiseCoord.x = detailNoiseCoord.x + (sin(finalNoiseY + (animTime * DETAIL_TIME_MULT)) * NOISE_PERTURB_AMPLITUDE);
-
-                //stepColor = float4(detailNoiseCoord.x ,detailNoiseCoord.y ,detailNoiseCoord.z , 1.0f);
-                //stepColor = float4(temp.x ,temp.y ,temp.z , 1.0f);
-                //return true;
                 
                 // Detail noise sampling
                 float3 detailScaledCoord = detailNoiseCoord * _Noise2Scale;
-
-                //stepColor = float4(detailNoiseCoord.x / 32.0f, detailNoiseCoord.y/ 32.0f, detailNoiseCoord.z/ 32.0f, 1.0f);
-                //return true;
-
-                //float3 testCoord = float3(0.0, 0.2, 0.1);
-                //float4 result = sampleProcessedNoise(testCoord, noisePowerVec, lowFreqParams, highFreqParams, noiseBlendParam);
-                //result.w = 1.0f;
-                //stepColor = result;
-                //return true;
+                
                 
                 float4 detailNoiseProcessed = sampleProcessedNoise(detailScaledCoord, noisePowerVec, lowFreqParams, highFreqParams, noiseBlendParam);
                 float detailNoiseCombined = combineNoiseChannels(detailNoiseProcessed);
@@ -708,9 +473,6 @@ Shader "Unlit/SmokeRaymarching"
                 float4 detailProcessedX = sampleProcessedNoise(detailScaledCoord + camRightOffset, noisePowerVec, lowFreqParams, highFreqParams, noiseBlendParam);
                 //all value same
                 float4 detailProcessedY = sampleProcessedNoise(detailScaledCoord + camUpOffset, noisePowerVec, lowFreqParams, highFreqParams, noiseBlendParam);
-                
-                //stepColor = float4(detailProcessedY.x ,detailProcessedY.y ,detailProcessedY.z , detailProcessedY.w);
-                //return true;
                 
                 // Depth fade and combined noise
                 float depthFade = _DetailNoiseInfluence * (dot(rayDirection, cameraForwardVector) * clamp(distance(shadowTestPos, _CameraPosition) * DEPTH_FADE_DIST_SCALE, 0.0, 1.0));
@@ -721,10 +483,6 @@ Shader "Unlit/SmokeRaymarching"
                 //sideNoise = clamp(detailNoiseCombined, 0.0, 1.0);
                 
                 float combinedNoise = mainNoise + sideNoise + _NoiseOffset;
-
-                //0.79297, 0.31738, 0.93799, 0.96289
-    	        //stepColor = float4(float3(detailNoiseCombined, depthFade, sideNoise), combinedNoise);
-                //return true;
                 
                 // Height fade
                 float normalizedDensity;
@@ -748,24 +506,6 @@ Shader "Unlit/SmokeRaymarching"
                 {
                     normalizedDensity = effectiveDensity;
                 }
-
-                //0.49634
-                //stepColor = float4(float3(heightFade, heightFade, heightFade), heightFade);
-                //return true;
-
-
-                //stepColor = float4(float3(detailNoiseCombined, depthFade, sideNoise), combinedNoise);
-                //return true;
-                
-                //stepColor = float4(heightFade, heightFade, heightFade, 1.0f);
-                //return true;
-
-                // stepColor = float4(
-                //     heightFade,
-                //     heightFade,
-                //     heightFade,
-                //     1.0f);
-                // return true;
                 
                 // Step density
                 float stepDensity = lerp(
@@ -773,40 +513,13 @@ Shader "Unlit/SmokeRaymarching"
                     normalizedDensity + combinedNoise,
                     normalizedDensity) *
                         clamp(volumeFadeParams[volumeIdx].x * volumeFadeParams[volumeIdx].w * DENSITY_FADE_MULT, 0.0, 1.0);
-
-                // 0.95605, 0.95605, 0.96289, 8.0
-                // stepColor = float4(
-                //     stepDensity,
-                //     lerp(
-                //         heightFade - (1.0 - combinedNoise),
-                //         heightFade + combinedNoise,
-                //         heightFade),
-                //     combinedNoise,
-                //     volumeFadeParams[volumeIdx].x * volumeFadeParams[volumeIdx].w * DENSITY_FADE_MULT
-                //     );
-                //return true;
-    
-                
-                //stepColor = float4(stepDensity, stepDensity, stepDensity, 1.0f);
-                //return true;
-
-                //stepColor = float4(combinedNoise, combinedNoise, combinedNoise, 1.0f);
-                ///return true;
-                
                 
                 if (stepDensity < EPSILON)
                     return false;
                 
-
-                //stepColor = float4(stepDensity, stepDensity, stepDensity, 1.0f);
-                //return true;
                 
                 // ========== NORMAL CALCULATION (FULL DETAIL) ==========
                 float3 baseNormalDir = normalize(volumeCenteredPos) * lerp(1.0, 0.0, clamp(shadowAmount, 0.0, 1.0));
-
-                //0.79346, 0.44067, 0.41943
-                //stepColor = float4(baseNormalDir.x, baseNormalDir.y, baseNormalDir.z, 1.0f);
-                //return true;
                 
                 // Detail noise normal
                 float3 detailNoiseNormal = normalize(float3(
@@ -814,24 +527,9 @@ Shader "Unlit/SmokeRaymarching"
                     normalGradStep,                                              
                     detailNoiseCombined - combineNoiseChannels(detailProcessedX)
                 ));
-
-                //0.45483, 0.79639, 0.39844, 1.00
-                //stepColor = float4(detailNoiseNormal.x, detailNoiseNormal.y, detailNoiseNormal.z ,1.0f);
-                //return true;
-
-                //0.79346, 0.44067, 0.41943, 1.0
-                //stepColor = float4(baseNormalDir.x, baseNormalDir.y, baseNormalDir.z, 1.0f);
-                //return true;
-
                 
                 float3 baseNormalWS = mul(float4(baseNormalDir.xyz, 0.0), cameraToWorldMatrix).xyz;
                 
-
-                //0.04193, 0.45386, 0.88965
-                //stepColor = float4(baseNormalWS.x, baseNormalWS.y, baseNormalWS.z, 1.0f);
-                //return true;
-                
-
                 float detailLerpStep = clamp(baseNoiseCombined - HALF, 0.0, 1.0);
                 float detailWeight = lerp(HALF, 1.0, detailLerpStep);
 
@@ -839,40 +537,19 @@ Shader "Unlit/SmokeRaymarching"
                     (detailNoiseNormal.xz * detailWeight * (depthFade * PHASE_POWER_1));
 
                 float distToCenter = distance(shadowTestPos, volumeCenter.xyz);
-
-                //0.38013
+                
                 float distFade = clamp((DISSIP_FADE_NEAR - distToCenter) * NORMAL_DIST_SCALE, 0.0, 1.0);
-    
-                //stepColor = float4(distFade, distFade, distFade, 1.0f);
-                //return true;
+                
                 
                 float perturbIntensity = _NormalPerturbScale * lerp(1.0, 2.0, distFade);
 
                 float3 totalPerturbation = float3(combinedNoiseXZ.x, 0.0, combinedNoiseXZ.y) * perturbIntensity;
-
-                //0.14856, 0.00, 0.30444, 1.0
-                //stepColor = float4(totalPerturbation.x, totalPerturbation.y, totalPerturbation.z, 1.0f);
-                //return true;
                 
                 float3 combinedNormalXYZ = baseNormalWS + totalPerturbation;
 
                 float4 finalNormalVec4 = mul(cameraToWorldMatrix, float4(combinedNormalXYZ.x, combinedNormalXYZ.y, combinedNormalXYZ.z, 0.0));
 
                 float3 viewSpaceNormal = finalNormalVec4.xyz;
-                                
-                // float4 normalTransform = mul(cameraToWorldMatrix, float4(((mul(cameraToWorldMatrix, float4(baseNormalDir.xyz, 0.0))).xyz +
-                //     ((float3((
-                //         noiseNormal.xz * _Noise1Influence) +
-                //         ((detailNoiseNormal * lerp(HALF, 1.0, clamp(baseNoiseCombined - HALF, 0.0, 1.0))).xz * (depthFade * PHASE_POWER_1)),
-                //         0.0) * _NormalPerturbScale) * lerp(1.0, 2.0, clamp((DISSIP_FADE_NEAR - distance(shadowTestPos, volumeCenters[volumeIdxInt].xyz)) * NORMAL_DIST_SCALE, 0.0, 1.0)))).xyz, 0.0));
-                // //float3 viewSpaceNormal = normalTransform.xyz;
-
-                //1.00977, 0.70068, 0.39795
-                //stepColor = float4(viewSpaceNormal.x, viewSpaceNormal.y, viewSpaceNormal.z, 1.0f);
-                //return true;
-
-                // stepColor = float4(viewSpaceNormal.x, viewSpaceNormal.y, viewSpaceNormal.z ,1.0f);
-                // return true;
                 
                 // ========== COLOR LOOKUP ==========
                 float3 scatterUVW = clamp(clamp(lerp(volumeCenteredPos * dot(baseNormalDir, viewSpaceNormal), normalize(viewSpaceNormal + float3(0.0, HALF, 0.0)) * length(volumeCenteredPos), float3(DISTORTION_AMPLITUDE, DISTORTION_AMPLITUDE, DISTORTION_AMPLITUDE)) + float3(HALF, HALF, HALF), float3(0.03, 0.03, 0.03), float3(0.97, 0.97, 0.97)), float3(0.0, 0.0, 0.0), float3(1.0, 1.0, 1.0));
@@ -884,82 +561,44 @@ Shader "Unlit/SmokeRaymarching"
                 Light mainLight = GetMainLight();
                 float3 mainLightDir = mainLight.direction;
                 float3 mainLightColor = mainLight.color;
-
-                //float4 mainLightDirectionVector = float4(-0.37157, 0.86603, 0.33457, 0.04);
-                //float4 mainLightIrradiance = float4(3.00, 2.21373, 1.35236, 0.00);
                 
                 
                 float sunDot = dot(lerp(baseNormalDir, viewSpaceNormal, float3(_PhaseBlend, _PhaseBlend, _PhaseBlend)), mainLightDir.xyz);
-                
-                //stepColor = float4(baseNormalDir.x, baseNormalDir.y, baseNormalDir.z, sunDot);
-
-                //stepColor = float4(baseNormalDir.x, baseNormalDir.y, baseNormalDir.z, sunDot);
-                //return true;
-
                 float phaseFunction = pow(clamp((sunDot * PHASE_SCALE_1) + PHASE_OFFSET_1, 0.0, 1.0), PHASE_POWER_1) + pow(clamp((sunDot * PHASE_SCALE_2) - PHASE_OFFSET_2, 0.0, 1.0), PHASE_POWER_2);
                 float sunScattering = (phaseFunction > 0.0) ? (phaseFunction * scatterColor.w) : phaseFunction;
                 
-                //stepColor = float4(sunDot, phaseFunction, sunScattering, 1.0f);
-                //return true;
-            
                 
                 // ========== COLOR PROCESSING (RGB <-> HSV) ==========
                 float3 hsv = RgbToHsv(scatterColor.xyz);
                 hsv.y = clamp(hsv.y * SATURATION_BOOST, 0.0, 1.0);
                 float3 finalRGB = HsvToRgb(hsv);
 
-                //stepColor = float4(finalRGB.x, finalRGB.z, finalRGB, 1.0f);
-                //return true;
-                
+
                 // ========== LIT COLOR ==========
-                // 1. 颜色预处理：防止除零并限制最大亮度
                 float3 safeRGB = finalRGB + float3(COLOR_EPSILON, COLOR_EPSILON, COLOR_EPSILON);
                 float3 normalizedColor = normalize(safeRGB);
                 float colorLen = min(length(finalRGB), MAX_COLOR_LENGTH);
                 float3 baseRGB = normalizedColor * colorLen;
-
-                // 2. 密度权重计算：处理二次采样的权重影响
+                
                 float stepDensityWeight = clamp(1.0 - min(SECOND_PASS_WEIGHT, stepDensity), 0.0, 1.0);
-
-                // 3. 高度与对比度衰减：基于高度调整云层密度感
+                
                 float heightFadeFactor = normalizedDensity * HEIGHT_FADE_DENSITY_MULT;
                 float contrastAdj = (heightFadeFactor - stepDensity) * _DensityContrast;
                 float heightContrastFade = clamp(1.0 - contrastAdj, 0.0, 1.0);
-
-                // 4. 噪声与散射合成：将噪声纹理与太阳散射逻辑结合
+                
                 float scatteringFactor = 0.75 + (sunScattering * SECOND_PASS_WEIGHT);
                 float3 textureScatteringTerm = combinedNoise * scatteringFactor;
                 
-                //stepColor = float4(textureScatteringTerm.x, textureScatteringTerm.y, stepDensity, stepDensityWeight);
-                //return true; 
-                
-                // 5. 法线曲率遮蔽：利用视角空间法线 Z 分量增加云朵的体积感/圆润感
-                // finalNormalVec4.z 越大（越朝向镜头），亮度越高
                 float curvatureShading = 1.0 + (finalNormalVec4.y * HALF);
-
-                // 6. 基础项合成 (Base Term)
+                
                 float3 baseResult = baseRGB * stepDensityWeight * heightContrastFade * textureScatteringTerm * curvatureShading;
                 baseResult *= _BaseColorIntensity;
-
-                // 7. 直接太阳散射项 (Direct Sun Scattering Term)
-                // 加入了腔体遮蔽 (cavityStrength)，让云朵缝隙处变暗
+                
                 float scatteringStrength = (HALF * sunScattering) * (1.0 - cavityStrength);
                 float3 sunDirectTerm = (mainLightColor * scatteringStrength) * _SunColorIntensity;
-
-                //0.15149, 0.11182, 0.0683, 0.14429
-                //stepColor = float4(sunDirectTerm.x, sunDirectTerm.y, sunDirectTerm.z,  scatteringStrength);
-                //return true;
-
-
                 
-                // 8. 最终颜色输出
                 float3 litColor = baseResult + sunDirectTerm;
-                
-                //0.15149， 0.11182， 0.0683, 1.0
-                //stepColor = float4(litColor.x, litColor.y ,litColor.z, 1.0f );
-                //return true;
 
-                
                 // ========== TINTING AND DESATURATION ==========
                 float3 lumaWeights = float3(LUMA_R, LUMA_G, LUMA_B);
                 //float3 tintColorVector = float4 (0.70588, 0.50588, 0.19608, 0.00 );
@@ -967,32 +606,16 @@ Shader "Unlit/SmokeRaymarching"
                 float3 volumeTintedColor = litColor * volumeTintColor[volumeIdxInt].xyz;
                 float3 desaturatedColor = (lerp(litColor, volumeTintedColor * (dot(litColor.xyz, lumaWeights) / dot((volumeTintedColor + float3(COLOR_EPSILON, COLOR_EPSILON, COLOR_EPSILON)).xyz, lumaWeights)), float3(HALF * (1.0 - volumeFadeParams[volumeIdx].z), HALF * (1.0 - volumeFadeParams[volumeIdx].z), HALF * (1.0 - volumeFadeParams[volumeIdx].z))) * lerp(float3(1.0, 1.0, 1.0), normalize(_ColorTint + float3(MIN_DENSITY_THRESHOLD, MIN_DENSITY_THRESHOLD, MIN_DENSITY_THRESHOLD)) * COLOR_TINT_NORM, float3(clamp(HALF + (stepDensity * HSV_HUE_SECTORS), 0.0, 1.0), clamp(HALF + (stepDensity * HSV_HUE_SECTORS), 0.0, 1.0), clamp(HALF + (stepDensity * HSV_HUE_SECTORS), 0.0, 1.0)))).xyz;
                 float3 shadowedColor = lerp(desaturatedColor, desaturatedColor * shadowMultiplier, float3(SHADOW_BLEND_FACTOR, SHADOW_BLEND_FACTOR, SHADOW_BLEND_FACTOR)).xyz;
-
-                //0.17188, 0.10669, 0.04617
-                //stepColor = float4(shadowedColor.x, shadowedColor.y ,shadowedColor.z, 1.0f );
-                //return true;
                 
                 // ========== FOG AND ALPHA ==========
                 float fogAmount = smoothstep(0.0, DISTORTION_AMPLITUDE, stepDensity + FOG_STEP_THRESHOLD) * (((clamp((_GodrayFalloffDist * RAW_CS2_DISTANCE_TO_UNITY - occlusionDistance) / (_GodrayFalloffDist * RAW_CS2_DISTANCE_TO_UNITY), 0.0, 1.0) * normalizedDensity) * FOG_DENSITY_MULT) * _GodrayIntensity);
                 float stepAlpha = smoothstep(0.0, DISTORTION_AMPLITUDE / (_AlphaScale * lerp(HALF, 2.0, stepColor.w)), stepDensity);
-
-                //0.00, 1.00, 8.59375, 1.00
-                //stepColor = float4(fogAmount, stepAlpha, occlusionDistance, 1.0f);
-                //return true;
                 
                 float3 tracerGlowColor = float3(TRACER_GLOW_R, TRACER_GLOW_G, TRACER_GLOW_B);
                 float4 stepContribution = float4(((shadowedColor + ((shadowedColor * tracerGlowColor) * tracerGlow)) * lerp(1.0, SHADOW_AMOUNT_SCALE, clamp(shadowAmount * TRACER_OFFSET_SCALE, 0.0, 1.0))) * stepAlpha, stepAlpha);
                 
-                //0.17188， 0.10669， 0.04617
-                //stepColor = stepContribution;
-                //return true;
-                
                 // ========== ACCUMULATION ==========
                 float sampleWeight = weightBase * RAW_CS2_DISTANCE_TO_UNITY_INV * weightMultiplier ;
-
-                //2.25
-                //stepColor = float4(sampleWeight, sampleWeight, sampleWeight, sampleWeight);
-                //return true;
                 
                 while (sampleWeight >= 1.0)
                 {
@@ -1003,17 +626,7 @@ Shader "Unlit/SmokeRaymarching"
                 }
                 stepLightEnergy += sunScattering * sampleWeight;
                 stepFogDensity += fogAmount * sampleWeight;
-
-                //return true;
-                
-                //0.91455, 0.51563, 0.4519, 1.0
                 stepColor += stepContribution * ((1.0 - stepColor.w) * sampleWeight);
-	            //return true;
-                //0.69238
-                //stepColor = stepLightEnergy;
-
-                //0
-                //stepColor = stepFogDensity;
                 
                 return (stepAlpha + fogAmount) > 0.0;
             }
@@ -1035,26 +648,18 @@ Shader "Unlit/SmokeRaymarching"
             FragmentOutput frag(v2f input) : SV_Target
             {
                 FragmentOutput output;
+                
                 // sample the smokeMask
                 uint rawSmokeMask = (SAMPLE_TEXTURE2D(_SmokeMask, sampler_SmokeMask, input.uv).r);
 
-                //output.outSmokeColor = float4(sceneAABBMin.x, sceneAABBMin.y, sceneAABBMin.z, 1.0f);
-                //return output;
-
-
-                //output.outSmokeColor = rawSmokeMask;
-                //return output;
-
-                // if no smoke is hit by this fragment, discard
                 if (rawSmokeMask == 0)
                     discard;
 
                 //output.outSmokeColor = DEBUG_PINK_COLOR;
                 //return output;
-                
-                float rawDepth = SampleSceneDepth(input.uv);
-                
+
                 // sample the depth of the scene
+                float rawDepth = SampleSceneDepth(input.uv);
 
                 // calculate the ndc position of the scene of this fragment
                 float4 ndc = float4(
@@ -1063,8 +668,6 @@ Shader "Unlit/SmokeRaymarching"
                     rawDepth,
                     1.0
                 );
-                    
-                
 
                 float4 worldPos = mul(_InvVP,ndc);
                 // calculate the worldPosition of the scene of this fragment in world space
@@ -1096,13 +699,6 @@ Shader "Unlit/SmokeRaymarching"
                     discard;
                 }
 
-                // else
-                // {
-                //     //if the ray hits a smoke 
-                //     output.outSmokeColor = float4(1.0f, 1.f, 0.2f, 1.0f);
-                //     return output;
-                // }
-                 
                 
                 float baseStepDistance = _BaseStepSize * RAW_CS2_DISTANCE_TO_UNITY * STEP_DISTANCE_MULTIPLIER;
                 int2 fragCoord = int2(input.positionCS.xy);
@@ -1297,16 +893,7 @@ Shader "Unlit/SmokeRaymarching"
                             hasExplosionLayer, skipDueToOcclusion,
                             _BaseStepSize * RAW_CS2_DISTANCE_TO_UNITY, FIRST_PASS_WEIGHT,  // <-- weight parameters
                             stepColor, stepLightEnergy, stepFogDensity);
-
-                        //output.outSmokeColor = float4(0.00, 1.0, 0.75195, 1.0);
-                        //output.outSmokeColor = stepColor;
-                        //return output;
                         
-               //          if(volumeCheckIndex > 1000){
-				           //  output.outSmokeColor = stepColor;
-               //              output.outSmokeColor = float4(1.0,1.0,0.5,1.0);
-				           //  return output;
-			            // }
                         
                         bool shouldRecordFirstHit = hasValidSampleResult && !hadPreviousSample;
                         if (shouldRecordFirstHit)

@@ -52,27 +52,6 @@ float noise1(float x)
     return lerp(hash(i), hash(i + 1.0), u);
 }
 
-float3 ApplyCloudDistortion(float3 uvw, float time)
-{
-    float3 p = (uvw - 0.5) * 7.0;
-
-    // --- 主方向：始终往下（不反向） ---
-    float downSpeed = 0.2;
-    p.y -= time * downSpeed;
-
-    // --- 非周期扰动：使用 noise 而不是 sin ---
-    float n1 = noise1(p.x * 1.3 + time * 0.4);
-    float n2 = noise1(p.z * 1.7 + time * 0.5);
-    float n3 = noise1(p.y * 1.1 + time * 0.3);
-
-    // 小扰动（永远不会“反向”主运动，只会左右小幅变化）
-    p.x += (n1 - 0.5) * 0.25;
-    p.z += (n2 - 0.5) * 0.25;
-    p.y += (n3 - 0.5) * 0.08;   // y 的扰动保持很小，避免反向
-
-    return p;
-}
-
 /// 
 /// @param cosTheta 
 /// @param g if g>0, forward scattering, light will more likely travel through the original direction
@@ -428,93 +407,74 @@ bool TraverseVoxels(
     float3 startPos,
     float3 rayDir,
     float maxDist,
-    float3 volumeCenter,
+    float3 aabbMin,  // 改为 Min
+    float3 aabbMax,  // 改为 Max
     int volumeIndex,
-    float volumeSize,
-    float voxelResolution,
-    float atlasTextureWidth,
-    float atlasSliceWidth,
     uint maxDDASteps
 )
 {
-    float halfVolumeSize = volumeSize * 0.5;
-    float voxelSize = volumeSize / voxelResolution;
-    float worldToVoxel = 1.0 / voxelSize;
-    float voxelToNormalized = 1.0 / voxelResolution;
-    float maxVoxelIndex = voxelResolution - 1.0;
+    float3 boxSize = aabbMax - aabbMin;
+    float3 voxelSize = boxSize / VOLUME_RESOLUTION; // 假设分辨率永远是 32
+    float3 invVoxelSize = 1.0 / (voxelSize + 1e-7);
     
-    float3 localPos = (startPos - volumeCenter) + halfVolumeSize;
-    float3 voxelPos = localPos * worldToVoxel;
-    voxelPos = clamp(voxelPos, 0.0, maxVoxelIndex);
+    // 关键：以 AABB 最小点为原点，localPos 永远 >= 0
+    float3 localPos = startPos - aabbMin;
+    float3 voxelPos = localPos * invVoxelSize;
     
-    int3 currentVoxel = int3(floor(voxelPos));
+    // 初始体素坐标并防止浮点误差导致溢出
+    int3 currentVoxel = clamp(int3(floor(voxelPos)), 0, VOLUME_RESOLUTION - 1);
     int3 voxelStep = int3(sign(rayDir));
     
-    // 每个轴方向上走一个体素需要的 t 距离
-    float3 tDeltaUnit = abs(voxelSize / (rayDir + 1e-7));
+    // DDA 步进步长
+    float3 tDelta = abs(voxelSize / (rayDir + 1e-7));
     
-    // 计算到达下一个体素边界的初始 t 值
-    float3 nextBoundary = float3(currentVoxel) + saturate(float3(voxelStep)); // 下一个边界的体素坐标
+    // 计算初始 tMax
+    float3 nextBoundary;
+    nextBoundary.x = (voxelStep.x > 0) ? floor(voxelPos.x) + 1.0 : ceil(voxelPos.x) - 1.0;
+    nextBoundary.y = (voxelStep.y > 0) ? floor(voxelPos.y) + 1.0 : ceil(voxelPos.y) - 1.0;
+    nextBoundary.z = (voxelStep.z > 0) ? floor(voxelPos.z) + 1.0 : ceil(voxelPos.z) - 1.0;
+    
     float3 tMax = (nextBoundary * voxelSize - localPos) / (rayDir + 1e-7);
-    
-    // 修正负方向的情况
-    tMax = abs(tMax);
-    
+
     [loop]
     for (uint i = 0; i < maxDDASteps; i++)
     {
-        // 边界检查
-        if (any(currentVoxel < 0) || any(currentVoxel >= (int)voxelResolution))
-        {
-            break;
-        }
 
-        // 计算 Atlas 采样坐标
-        float atlasU = (volumeIndex * DENSITY_PAGE_STRIDE + currentVoxel.x + 0.5) * DENSITY_ATLAS_WIDTH_INV;
-        float atlasV = (currentVoxel.y + 0.5) / SINGLE_VOLUME_TILE_SIZE;
-        float atlasW = (currentVoxel.z + 0.5) / SINGLE_VOLUME_TILE_SIZE;
+        //if (currentVoxel.y < 0.0) return true;
+        
+        // 边界安全检查
+        if (any(currentVoxel < 0) || any(currentVoxel >= VOLUME_RESOLUTION)) break;
+
+        // --- 坐标系映射修正 ---
+        // CS2 数据是 Z-Up，Unity 是 Y-Up。
+        // 所以 Unity 的 Y (高度) 应该映射到 3D 纹理的 W 轴 (Depth/Height)
+        // Unity 的 Z (深度) 应该映射到 3D 纹理的 V 轴
+        float atlasU = (volumeIndex * DENSITY_PAGE_STRIDE + (float)currentVoxel.x + 0.5) * DENSITY_ATLAS_WIDTH_INV;
+        float atlasV = ((float)currentVoxel.y + 0.5) / VOLUME_RESOLUTION; 
+        float atlasW = ((float)currentVoxel.z + 0.5) / VOLUME_RESOLUTION; // 高度映射到 W
         
         float4 smokeData = smokeTex.SampleLevel(smokeSampler, float3(atlasU, atlasV, atlasW), 0);
+        if (smokeData.x > 0.001) return true;
 
-        if (smokeData.x > 0.0)
-        {
-            return true;
-        }
-
-        // 距离检查
-        float distTraveled = length((float3(currentVoxel) + 0.5) * voxelSize - localPos);
-        if (distTraveled > maxDist) 
-            break;
-
-        // DDA 步进：只允许一个轴前进，避免对角线跳跃
-        if (tMax.x < tMax.y)
-        {
-            if (tMax.x < tMax.z)
-            {
-                currentVoxel.x += voxelStep.x;
-                tMax.x += tDeltaUnit.x;
+        // DDA 步进
+        if (tMax.x < tMax.y) {
+            if (tMax.x < tMax.z) {
+                if (tMax.x > maxDist) break;
+                currentVoxel.x += voxelStep.x; tMax.x += tDelta.x;
+            } else {
+                if (tMax.z > maxDist) break;
+                currentVoxel.z += voxelStep.z; tMax.z += tDelta.z;
             }
-            else
-            {
-                currentVoxel.z += voxelStep.z;
-                tMax.z += tDeltaUnit.z;
-            }
-        }
-        else
-        {
-            if (tMax.y < tMax.z)
-            {
-                currentVoxel.y += voxelStep.y;
-                tMax.y += tDeltaUnit.y;
-            }
-            else
-            {
-                currentVoxel.z += voxelStep.z;
-                tMax.z += tDeltaUnit.z;
+        } else {
+            if (tMax.y < tMax.z) {
+                if (tMax.y > maxDist) break;
+                currentVoxel.y += voxelStep.y; tMax.y += tDelta.y;
+            } else {
+                if (tMax.z > maxDist) break;
+                currentVoxel.z += voxelStep.z; tMax.z += tDelta.z;
             }
         }
     }
-    
     return false;
 }
 

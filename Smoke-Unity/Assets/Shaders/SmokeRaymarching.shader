@@ -1035,13 +1035,15 @@ Shader "Unlit/SmokeRaymarching"
             FragmentOutput frag(v2f input) : SV_Target
             {
                 FragmentOutput output;
-
-                //output.outSmokeColor             = pow(0.23621, 1.0 / 2.4);
-                //stepColor = float4(0.5, 0.2, 0.3, 1.0f);
-                //return output;
-                
                 // sample the smokeMask
                 uint rawSmokeMask = (SAMPLE_TEXTURE2D(_SmokeMask, sampler_SmokeMask, input.uv).r);
+
+                //output.outSmokeColor = float4(sceneAABBMin.x, sceneAABBMin.y, sceneAABBMin.z, 1.0f);
+                //return output;
+
+
+                //output.outSmokeColor = rawSmokeMask;
+                //return output;
 
                 // if no smoke is hit by this fragment, discard
                 if (rawSmokeMask == 0)
@@ -1085,14 +1087,22 @@ Shader "Unlit/SmokeRaymarching"
                     rayEnterDistance,
                     rayExitDistance
                 );
-
+                
+                //if the ray is not hitting any smoke
                 if (!isHitScene)
                 {
-                    output.outSmokeColor = float4(1.0f, 0.1f, 1.0f, 1.0f);
-                    return output;
+                    //output.outSmokeColor = float4(1.0f, 0.1f, 1.0f, 1.0f);
+                    //return output;
                     discard;
                 }
-                
+
+                // else
+                // {
+                //     //if the ray hits a smoke 
+                //     output.outSmokeColor = float4(1.0f, 1.f, 0.2f, 1.0f);
+                //     return output;
+                // }
+                 
                 
                 float baseStepDistance = _BaseStepSize * RAW_CS2_DISTANCE_TO_UNITY * STEP_DISTANCE_MULTIPLIER;
                 int2 fragCoord = int2(input.positionCS.xy);

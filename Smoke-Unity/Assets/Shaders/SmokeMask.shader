@@ -61,7 +61,7 @@ Shader "Unlit/SmokeMask"
                 float animationTime;
                 uint enableExplosions;
 
-                float3 _CameraForward;
+                //float3 _CameraForward;
             
             CBUFFER_END
             
@@ -110,7 +110,7 @@ Shader "Unlit/SmokeMask"
                 float4 ndc = float4(
                     input.uv.x * 2.0 - 1.0,
                     (1.0 - input.uv.y) * 2.0 - 1.0,
-                    1.0,
+                    0.0,
                     1.0
                 );
                 
@@ -119,10 +119,30 @@ Shader "Unlit/SmokeMask"
 
                 float3 cameraPos = _CameraPosition;
                 float3 rayDir = normalize(worldPosition - cameraPos);
-                //float3 cameraForward = -UNITY_MATRIX_V[2].xyz; // 或者传入 _CameraForward
-                float cosAngle = dot(_CameraForward, rayDir);
+                //float3 cameraForward = -UNITY_MATRIX_V[2].xyz; //
+
+                float tOverallMin, tOverallMax;
+                if (!AABBIntersect(
+                    sceneAABBMin,
+                    //float3(2.0, 2.0, 2.0),
+                    sceneAABBMax,
+                    //float3(5.0,5.0, 5.0),
+                    cameraPos,
+                    rayDir,
+                    tOverallMin,
+                    tOverallMax
+                ))
+                {
+                    discard;
+                    //return float4(0.5, 1, 1, 1);
+                }
+
+                
+                float cosAngle = dot(-UNITY_MATRIX_I_V[2].xyz, rayDir);
                 float viewZ = LinearEyeDepth(rawDepth, _ZBufferParams);
                 float maxDist = viewZ / max(cosAngle, 0.001);
+
+                
                 //float rayDotCameraForward = dot(_CameraForward, rayDirection);
                 //float sceneSurfaceDistance = viewZ / rayDotCameraForward;
                 
@@ -151,6 +171,7 @@ Shader "Unlit/SmokeMask"
                         tMax
                     ))
                     {
+                        //return float4(1, 0, 0, 1);
                         //return float4(1,1,1,1);
                         //return 1;
                         float rayStart = max(0.0, tMin);
@@ -169,12 +190,9 @@ Shader "Unlit/SmokeMask"
                             startPos,
                             rayDir,
                             maxTraverseDist,
-                            pos,
+                            aabbMin,
+                            aabbMax,
                             slotIndex,
-                            _VolumeSize,
-                            VOLUME_RESOLUTION,
-                            DENSITY_ATLAS_WIDTH_INV,
-                            VOLUME_RESOLUTION,
                             _MaxDDASteps
                         ))
                         {

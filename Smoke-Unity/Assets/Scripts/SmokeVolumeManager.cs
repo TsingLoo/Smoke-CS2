@@ -124,13 +124,13 @@ public class SmokeVolumeManager : MonoBehaviour
         dataArray = new SceneVolumeUniforms[1];
         sceneUniformBuffer = new ComputeBuffer(1, 2464, ComputeBufferType.Constant);
         cpuData = new SceneVolumeUniforms();
+        
+        cpuData.sceneAABBMin = new Vector4(float.MaxValue, float.MaxValue, float.MaxValue, 1);
+        cpuData.sceneAABBMax = new Vector4(float.MinValue, float.MinValue, float.MinValue, 1);
     }
 
     private void Start()
     {
-        cpuData.sceneAABBMin = new Vector4(float.MaxValue, float.MaxValue, float.MaxValue, 1);
-        cpuData.sceneAABBMax = new Vector4(float.MinValue, float.MinValue, float.MinValue, 1);
-        
         Shader.SetGlobalFloat(_VolumeSize, GRID_WORLD_SIZE);
         
         // 传递新的atlas布局参数给Shader
@@ -221,11 +221,34 @@ public class SmokeVolumeManager : MonoBehaviour
         return -1;
     }
 
+    void UpdateGlobalSceneAABB()
+    {
+        Vector3 min = Vector3.one * float.MaxValue;
+        Vector3 max = Vector3.one * float.MinValue;
+        bool hasActive = false;
+
+        for (int i = 0; i < MAX_SMOKE_COUNT; i++)
+        {
+            if (slots[i].active)
+            {
+                min = Vector3.Min(min, (Vector3)cpuData.volumeMinBounds[i]);
+                max = Vector3.Max(max, (Vector3)cpuData.volumeMaxBounds[i]);
+                hasActive = true;
+            }
+        }
+        
+        cpuData.sceneAABBMin = hasActive ? new Vector4(min.x, min.y, min.z, 1.0f) : Vector4.zero;
+        cpuData.sceneAABBMax = hasActive ? new Vector4(max.x, max.y, max.z, 1.0f) : Vector4.zero;
+    }
+
     public void ReleaseSmokeSlot(int index)
     {
         if (index >= 0 && index < MAX_SMOKE_COUNT)
         {
             slots[index].active = false;
+            cpuData.volumeMinBounds[index] = Vector4.zero;
+            cpuData.volumeMaxBounds[index] = Vector4.zero;
+            UpdateGlobalSceneAABB();
             ClearSlotData(index);
         }
     }
@@ -256,23 +279,7 @@ public class SmokeVolumeManager : MonoBehaviour
         cpuData.volumeTintColor[slotIndex] = tint;
         cpuData.volumeFadeParams[slotIndex] = new Vector4(1.0f, 1.0f, 0.0f, 1.0f);
 
-        Vector3 sceneMin = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
-        Vector3 sceneMax = new Vector3(float.MinValue, float.MinValue, float.MinValue);
-
-        for (int i = 0; i < MAX_SMOKE_COUNT; i++)
-        {
-            Vector3 vMin = cpuData.volumeMinBounds[i];
-            Vector3 vMax = cpuData.volumeMaxBounds[i];
-            
-            if (vMin != Vector3.zero || vMax != Vector3.zero) 
-            {
-                sceneMin = Vector3.Min(sceneMin, vMin);
-                sceneMax = Vector3.Max(sceneMax, vMax);
-            }
-        }
-
-        cpuData.sceneAABBMin = new Vector4(sceneMin.x, sceneMin.y, sceneMin.z, 1.0f);
-        cpuData.sceneAABBMax = new Vector4(sceneMax.x, sceneMax.y, sceneMax.z, 1.0f);
+        UpdateGlobalSceneAABB();
         
         isMetadataDirty = true;
     }

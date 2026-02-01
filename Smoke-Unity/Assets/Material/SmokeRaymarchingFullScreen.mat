@@ -53,7 +53,7 @@ Material:
     - _JitterScale: 1
     - _Noise1Influence: 0.5
     - _Noise1Scale: 3
-    - _Noise2Scale: 8.59
+    - _Noise2Scale: 7
     - _NoiseBlendFactor: 0
     - _NoiseColorA: 0
     - _NoiseColorB: 1.05

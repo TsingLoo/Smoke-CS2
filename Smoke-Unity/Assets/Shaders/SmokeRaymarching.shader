@@ -103,6 +103,9 @@ Shader "Unlit/SmokeRaymarching"
             Texture3D _RawCS2SmokeDataTex3D;
             SamplerState sampler_RawCS2SmokeDataTex3D;
 
+            //Texture3D _RawCS2SmokeDataTex3D;
+            //SamplerState sampler_RawCS2SmokeDataTex3D;
+
             CBUFFER_START(RenderParamsBlock)
                 float _AlphaScale;
                 float _TimeScale;
